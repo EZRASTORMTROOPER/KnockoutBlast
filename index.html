@@ -16,6 +16,15 @@
       user-select: none; pointer-events: none;
     }
     .ui b { color: #fff; }
+    .panel {
+      position: fixed; left: 16px; bottom: 16px;
+      padding: 10px 14px; border-radius: 14px;
+      background: rgba(20,22,24,0.65); color: #e9eef5;
+      font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
+      user-select: none;
+    }
+    .panel input { width: 160px; }
     .crosshair {
       position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
       width: 14px; height: 14px; pointer-events: none; opacity: 0.85;
@@ -42,6 +51,11 @@
   <div class="crosshair"></div>
   <div class="hint" id="hint">Click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
+  <div class="panel">
+    <div>Total balls: <span id="ballValue">2000</span></div>
+    <input id="ballSlider" type="range" min="100" max="10000" value="2000" />
+    <div>Dispensed: <span id="usedValue">0</span></div>
+  </div>
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
@@ -158,6 +172,28 @@
     player.position.set(0, 0, 0);
     scene.add(player);
 
+    // --- Dispenser ---
+    const dispenser = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshLambertMaterial({ color: 0x888888 }));
+    dispenser.position.set(0,0.5,6);
+    dispenser.castShadow = true; dispenser.receiveShadow = true;
+    scene.add(dispenser);
+
+    // --- Bouncers ---
+    const bouncers = [];
+    function addBouncer(x,z,width,depth,axis){
+      const geo = new THREE.BoxGeometry(width,2,depth);
+      const mat = new THREE.MeshLambertMaterial({ color: 0xffaa00 });
+      const mesh = new THREE.Mesh(geo,mat);
+      mesh.position.set(x,1,z);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh);
+      bouncers.push({mesh, axis, sizeA: axis==='x'?width:depth, sizeB: axis==='x'?depth:width});
+    }
+    addBouncer(6,0,0.5,8,'x');
+    addBouncer(-6,0,0.5,8,'x');
+    addBouncer(0,6,8,0.5,'z');
+    addBouncer(0,-6,8,0.5,'z');
+
     // --- Controls state ---
     let yaw = 0; // horizontal aim
     let pitch = 0; // vertical aim (for camera only)
@@ -172,7 +208,19 @@
     const bulletGeo = new THREE.SphereGeometry(0.06, 12, 8);
     const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
 
+    const slider = document.getElementById('ballSlider');
+    const ballValue = document.getElementById('ballValue');
+    const usedValue = document.getElementById('usedValue');
+    let maxBalls = parseInt(slider.value, 10);
+    let ballsDispensed = 0;
+    ballValue.textContent = maxBalls;
+    slider.addEventListener('input', () => {
+      maxBalls = parseInt(slider.value, 10);
+      ballValue.textContent = maxBalls;
+    });
+
     function shoot(){
+      if (ballsDispensed >= maxBalls) return;
       // Muzzle position slightly in front/right of player chest, aligned with aim
       const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
       const muzzleWorld = player.localToWorld(muzzle.clone());
@@ -186,6 +234,8 @@
       scene.add(mesh);
 
       bullets.push({ mesh, vel: dir.multiplyScalar(38), born: performance.now() });
+      ballsDispensed++;
+      usedValue.textContent = ballsDispensed;
     }
 
     // --- Input ---
@@ -268,9 +318,33 @@
       const now = performance.now();
       for (let i=bullets.length-1;i>=0;i--){
         const b = bullets[i];
+        b.vel.y -= GRAV * dt;
         b.mesh.position.addScaledVector(b.vel, dt);
-        // remove old or out-of-bounds bullets
-        if (now - b.born > 3000 || b.mesh.position.length() > groundSize) {
+        const r = 0.06 * b.mesh.scale.x;
+
+        // Ground bounce
+        if (b.mesh.position.y - r <= 0){
+          b.mesh.position.y = r;
+          b.vel.y = Math.abs(b.vel.y) * 0.6;
+          b.mesh.scale.multiplyScalar(0.8);
+        }
+
+        // Bouncer collisions
+        for (const w of bouncers){
+          const axis = w.axis;
+          const other = axis === 'x' ? 'z' : 'x';
+          if (Math.abs(b.mesh.position[axis] - w.mesh.position[axis]) <= w.sizeA/2 + r &&
+              Math.abs(b.mesh.position[other] - w.mesh.position[other]) <= w.sizeB/2 &&
+              b.mesh.position.y <= 2 + r && b.mesh.position.y >= -r){
+            const sign = Math.sign(b.vel[axis]) || Math.sign(b.mesh.position[axis] - w.mesh.position[axis]);
+            b.mesh.position[axis] = w.mesh.position[axis] + sign*(w.sizeA/2 + r);
+            b.vel[axis] *= -1;
+            b.mesh.scale.multiplyScalar(0.8);
+          }
+        }
+
+        // remove small or old/out-of-bounds bullets
+        if (b.mesh.scale.x < 0.02 || now - b.born > 6000 || b.mesh.position.length() > groundSize) {
           scene.remove(b.mesh); bullets.splice(i,1);
         }
       }
