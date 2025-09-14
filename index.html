@@ -40,7 +40,7 @@
 <body>
   <div id="app"></div>
   <div class="crosshair"></div>
-  <div class="hint" id="hint">Click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Click</b> to shoot, <b>Space</b> to jump.</div>
+  <div class="hint" id="hint">Middle click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
 
   <script type="module">
@@ -165,11 +165,11 @@
     let pointerLocked = false;
 
     // Camera offset relative to player in local space (over‑the‑shoulder)
-    const camOffset = new THREE.Vector3(-2.5, 1.8, 3.8); // left shoulder & back
+    const camOffset = new THREE.Vector3(-2.5, 1.8, -3.8); // left shoulder & back
 
     // --- Bullets ---
     const bullets = [];
-    const bulletGeo = new THREE.SphereGeometry(0.06, 12, 8);
+    const bulletGeo = new THREE.SphereGeometry(0.12, 12, 8);
     const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
 
     function shoot(){
@@ -194,11 +194,11 @@
 
     // Pointer lock for mouse look
     const hint = document.getElementById('hint');
-    addEventListener('click', () => {
-      if (!pointerLocked) {
+    addEventListener('mousedown', e => {
+      if (!pointerLocked && e.button === 1) {
+        e.preventDefault();
         renderer.domElement.requestPointerLock();
-      } else {
-        // left click while locked shoots
+      } else if (pointerLocked && e.button === 0) {
         shoot();
       }
     });
@@ -269,6 +269,7 @@
       for (let i=bullets.length-1;i>=0;i--){
         const b = bullets[i];
         b.mesh.position.addScaledVector(b.vel, dt);
+        b.mesh.scale.multiplyScalar(0.98);
         // remove old or out-of-bounds bullets
         if (now - b.born > 3000 || b.mesh.position.length() > groundSize) {
           scene.remove(b.mesh); bullets.splice(i,1);
@@ -289,7 +290,7 @@
 
     // Spawn position and initial camera placement
     player.position.set(0,0,8);
-    camera.position.set(-2.5, 2.2, 12);
+    camera.position.set(-2.5, 2.2, 4.2);
     camera.lookAt(player.position.x, 1.3, player.position.z);
 
     // Resize
