@@ -35,6 +35,16 @@
       text-align: center;
     }
     .hidden { display: none; }
+
+    .controls {
+      position: fixed; top: 16px; left: 16px;
+      padding: 10px 14px; border-radius: 10px;
+      background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+      font: 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: #f1f5f9;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+    }
+    .controls input[type=range] { width: 160px; }
   </style>
 </head>
 <body>
@@ -42,9 +52,20 @@
   <div class="crosshair"></div>
   <div class="hint" id="hint">Click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
+  <div class="controls">Balls: <input type="range" id="ballSlider" min="100" max="10000" value="2000"> <span id="ballValue">2000</span></div>
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+
+    const ballSlider = document.getElementById('ballSlider');
+    const ballValue = document.getElementById('ballValue');
+    let maxBalls = parseInt(ballSlider.value);
+    let remainingBalls = maxBalls;
+    ballSlider.addEventListener('input', () => {
+      maxBalls = parseInt(ballSlider.value);
+      remainingBalls = maxBalls;
+      ballValue.textContent = ballSlider.value;
+    });
 
     // --- Renderer & Scene ---
     const app = document.getElementById('app');
@@ -129,6 +150,21 @@
       scene.add(t);
     }
 
+    // Simple bouncer obstacles
+    const bouncers = [];
+    function addBouncer(x,z){
+      const geo = new THREE.BoxGeometry(4,2,4);
+      const mat = new THREE.MeshLambertMaterial({ color: 0xcc6633 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x,1,z);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh);
+      bouncers.push({ mesh, half: new THREE.Vector3(2,1,2) });
+    }
+    addBouncer(12,0);
+    addBouncer(-8,10);
+    addBouncer(5,-12);
+
     // --- Player (generic low‑poly, Fortnite‑inspired POV) ---
     const player = new THREE.Group();
 
@@ -168,25 +204,28 @@
     const camOffset = new THREE.Vector3(-2.5, 1.8, 3.8); // left shoulder & back
 
     // --- Bullets ---
-    const bullets = [];
-    const bulletGeo = new THREE.SphereGeometry(0.06, 12, 8);
-    const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
+      const bullets = [];
+      const bulletGeo = new THREE.SphereGeometry(0.3, 16, 12);
+      const bulletMat = new THREE.MeshLambertMaterial({ color: 0xffffee });
 
-    function shoot(){
-      // Muzzle position slightly in front/right of player chest, aligned with aim
-      const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
-      const muzzleWorld = player.localToWorld(muzzle.clone());
+      function shoot(){
+        if (remainingBalls <= 0) return;
+        remainingBalls--;
 
-      // Forward direction from camera (aim)
-      const dir = new THREE.Vector3();
-      camera.getWorldDirection(dir);
+        // Muzzle position slightly in front/right of player chest, aligned with aim
+        const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
+        const muzzleWorld = player.localToWorld(muzzle.clone());
 
-      const mesh = new THREE.Mesh(bulletGeo, bulletMat);
-      mesh.position.copy(muzzleWorld);
-      scene.add(mesh);
+        // Forward direction from camera (aim)
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
 
-      bullets.push({ mesh, vel: dir.multiplyScalar(38), born: performance.now() });
-    }
+        const mesh = new THREE.Mesh(bulletGeo, bulletMat);
+        mesh.position.copy(muzzleWorld);
+        scene.add(mesh);
+
+        bullets.push({ mesh, vel: dir.multiplyScalar(25), born: performance.now() });
+      }
 
     // --- Input ---
     addEventListener('keydown', e=>{ keys.add(e.code); });
@@ -268,9 +307,45 @@
       const now = performance.now();
       for (let i=bullets.length-1;i>=0;i--){
         const b = bullets[i];
+        b.vel.y -= GRAV * dt;
         b.mesh.position.addScaledVector(b.vel, dt);
-        // remove old or out-of-bounds bullets
-        if (now - b.born > 3000 || b.mesh.position.length() > groundSize) {
+
+        const r = 0.3 * b.mesh.scale.x;
+
+        // Ground collision
+        if (b.mesh.position.y - r <= 0){
+          b.mesh.position.y = r;
+          b.vel.y = Math.abs(b.vel.y) * 0.6;
+          b.mesh.scale.multiplyScalar(0.7);
+        }
+
+        // Bouncers collision
+        for (const box of bouncers){
+          const hp = box.half;
+          const pos = box.mesh.position;
+          const dx = b.mesh.position.x - pos.x;
+          const dy = b.mesh.position.y - pos.y;
+          const dz = b.mesh.position.z - pos.z;
+          if (Math.abs(dx) <= hp.x + r && Math.abs(dy) <= hp.y + r && Math.abs(dz) <= hp.z + r){
+            const px = hp.x + r - Math.abs(dx);
+            const py = hp.y + r - Math.abs(dy);
+            const pz = hp.z + r - Math.abs(dz);
+            if (px < py && px < pz){
+              b.mesh.position.x = pos.x + Math.sign(dx)*(hp.x + r);
+              b.vel.x = -b.vel.x;
+            } else if (py < pz){
+              b.mesh.position.y = pos.y + Math.sign(dy)*(hp.y + r);
+              b.vel.y = -b.vel.y;
+            } else {
+              b.mesh.position.z = pos.z + Math.sign(dz)*(hp.z + r);
+              b.vel.z = -b.vel.z;
+            }
+            b.mesh.scale.multiplyScalar(0.7);
+          }
+        }
+
+        // remove tiny or out-of-bounds bullets
+        if (b.mesh.scale.x < 0.05 || now - b.born > 15000 || Math.abs(b.mesh.position.x) > groundSize || Math.abs(b.mesh.position.z) > groundSize) {
           scene.remove(b.mesh); bullets.splice(i,1);
         }
       }
