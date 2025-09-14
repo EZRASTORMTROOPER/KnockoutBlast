@@ -15,33 +15,56 @@
       box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
       user-select: none; pointer-events: none;
     }
-    .ui b { color: #fff; }
-    .crosshair {
-      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-      width: 14px; height: 14px; pointer-events: none; opacity: 0.85;
-    }
+      .ui b { color: #fff; }
+      .crosshair {
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: 14px; height: 14px; pointer-events: none; opacity: 0.85;
+      }
     .crosshair:before, .crosshair:after {
       content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       background: #e9eef5; border-radius: 2px;
     }
     .crosshair:before { width: 14px; height: 2px; }
     .crosshair:after  { width: 2px; height: 14px; }
-    .hint {
-      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      padding: 10px 14px; border-radius: 14px; color: #f1f5f9;
-      background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
-      font: 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
-      text-align: center;
-    }
-    .hidden { display: none; }
-  </style>
-</head>
-<body>
-  <div id="app"></div>
-  <div class="crosshair"></div>
-  <div class="hint" id="hint">Middle‑click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
-  <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
+      .hint {
+        position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+        padding: 10px 14px; border-radius: 14px; color: #f1f5f9;
+        background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+        font: 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+        text-align: center;
+      }
+      .hidden { display: none; }
+
+      /* Day/Night cycle indicator */
+      .cycle {
+        position: fixed; top: 16px; right: 16px;
+        width: 60px; height: 60px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 26px;
+        border: 3px solid rgba(255,255,255,0.25);
+        background: conic-gradient(#fbbf24 0deg, #1e293b 0deg);
+      }
+
+      /* simple health bar */
+      .health {
+        position: fixed; bottom: 16px; left: 16px;
+        width: 160px; height: 18px; border-radius: 9px;
+        background: rgba(0,0,0,0.4); overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      }
+      .health-inner {
+        height: 100%; background: #ef4444; width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div class="crosshair"></div>
+    <div class="hint" id="hint">Middle‑click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
+    <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
+    <div class="cycle" id="cycle"><span id="cycleIcon">☀️</span></div>
+    <div class="health"><div id="healthInner" class="health-inner"></div></div>
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
@@ -85,6 +108,40 @@
     ground.rotation.x = -Math.PI/2;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    // --- Rabbit's cave ---
+    function makeCave(){
+      const g = new THREE.Group();
+      const outer = new THREE.Mesh(
+        new THREE.SphereGeometry(2, 16, 16, 0, Math.PI),
+        new THREE.MeshLambertMaterial({ color: 0x5a4a42 })
+      );
+      outer.rotation.x = -Math.PI/2; outer.position.y = 1;
+      const inner = new THREE.Mesh(
+        new THREE.SphereGeometry(1.6, 16, 16, 0, Math.PI),
+        new THREE.MeshLambertMaterial({ color: 0x000000, side: THREE.BackSide })
+      );
+      inner.rotation.x = -Math.PI/2; inner.position.y = 1;
+      g.add(outer, inner);
+      return g;
+    }
+    const cave = makeCave();
+    cave.position.set(35, 0, 35);
+    scene.add(cave);
+
+    // --- Day/Night cycle ---
+    const cycleEl = document.getElementById('cycle');
+    const cycleIcon = document.getElementById('cycleIcon');
+    const cycleDuration = 60000; // 60s full cycle
+    let cycleStart = performance.now();
+    let daytime = true;
+
+    const healthInner = document.getElementById('healthInner');
+    let playerHealth = 100;
+    function updateHealth(){
+      healthInner.style.width = `${playerHealth}%`;
+    }
+    updateHealth();
 
     // --- Low‑poly Tree Factory ---
     function makeTree() {
@@ -199,27 +256,21 @@
 
     const rabbit = makeScaryRabbit();
     let rabbitVisible = false;
+    let dragging = false;
+    let rabbitFleeing = false;
 
     function spawnRabbit() {
-      const candidates = trees.filter(t => {
-        const d = t.position.distanceTo(player.position);
-        return d > 15 && d < 45;
-      });
-      if (candidates.length === 0) return;
-      const tree = candidates[Math.floor(Math.random() * candidates.length)];
-      const away = player.position.clone().sub(tree.position).normalize();
-      rabbit.position.copy(tree.position.clone().add(away.multiplyScalar(-2.2)));
+      rabbit.position.copy(cave.position.clone().add(new THREE.Vector3(0, 0, 2)));
       scene.add(rabbit);
       rabbitVisible = true;
     }
-
-    spawnRabbit();
 
     // --- Controls state ---
     let yaw = 0; // horizontal aim
     let pitch = 0; // vertical aim (for camera only)
     const keys = new Set();
     let pointerLocked = false;
+    let isOnGround = false;
 
     // Camera offset relative to player in local space (over‑the‑shoulder)
     const camOffset = new THREE.Vector3(-2.5, 1.8, 3.8); // left shoulder & back
@@ -257,8 +308,13 @@
         renderer.domElement.requestPointerLock();
         e.preventDefault();
       } else if (e.button === 0 && pointerLocked) {
-        // left click while locked shoots
-        shoot();
+        // left click
+        if (dragging && isOnGround) {
+          dragging = false;
+          rabbitFleeing = true;
+        } else {
+          shoot();
+        }
       }
     });
 
@@ -280,6 +336,7 @@
     const GRAV = 22;
 
     function update(dt){
+      const now = performance.now();
       // Move on XZ using yaw (aim direction)
       const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
       const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
@@ -300,6 +357,7 @@
       velY -= GRAV * dt;
       player.position.y += velY * dt;
       if (player.position.y < 0) { player.position.y = 0; velY = 0; }
+      isOnGround = onGround;
 
       // Rotate player body to face yaw (torso only for a simple look)
       player.rotation.y = yaw;
@@ -323,8 +381,54 @@
       const camAim = camera.position.clone().add(pitched);
       camera.lookAt(camAim);
 
+      // Day/Night cycle update
+      const cycleT = (now - cycleStart) % cycleDuration;
+      const phase = cycleT / cycleDuration;
+      cycleEl.style.background = `conic-gradient(#fbbf24 ${phase*360}deg, #1e293b ${phase*360}deg)`;
+      const isDay = phase < 0.5;
+      cycleIcon.textContent = isDay ? '☀️' : '🌙';
+      if (isDay !== daytime) {
+        daytime = isDay;
+        if (daytime) {
+          scene.background.set(0x7fb0ff);
+          scene.fog.color.set(0x7fb0ff); scene.fog.near = 20; scene.fog.far = 140;
+          hemi.intensity = 0.6; sun.intensity = 1.0;
+          if (rabbitVisible) { scene.remove(rabbit); rabbitVisible = false; dragging=false; }
+        } else {
+          scene.background.set(0x000000);
+          scene.fog.color.set(0x000000); scene.fog.near = 2; scene.fog.far = 30;
+          hemi.intensity = 0.2; sun.intensity = 0.2;
+          if (!rabbitVisible) spawnRabbit();
+        }
+      }
+
+      // Rabbit AI
+      if (!daytime && rabbitVisible && !rabbitFleeing) {
+        if (!dragging) {
+          const dir = player.position.clone().sub(rabbit.position).normalize();
+          rabbit.position.addScaledVector(dir, dt*3);
+          if (rabbit.position.distanceTo(player.position) < 1) {
+            dragging = true;
+            playerHealth = Math.max(0, playerHealth * 0.5);
+            updateHealth();
+          }
+        } else {
+          const dir = cave.position.clone().sub(player.position).normalize();
+          player.position.addScaledVector(dir, dt*2);
+          rabbit.position.copy(player.position.clone().add(dir.clone().multiplyScalar(-1)));
+        }
+      }
+      if (rabbitFleeing) {
+        const dir = cave.position.clone().sub(rabbit.position).normalize();
+        rabbit.position.addScaledVector(dir, dt*6);
+        if (rabbit.position.distanceTo(cave.position) < 1) {
+          scene.remove(rabbit);
+          rabbitVisible = false;
+          rabbitFleeing = false;
+        }
+      }
+
       // Bullets update
-      const now = performance.now();
       for (let i=bullets.length-1;i>=0;i--){
         const b = bullets[i];
         b.mesh.position.addScaledVector(b.vel, dt);
@@ -336,16 +440,6 @@
         }
       }
 
-      // Remove rabbit if looked at
-      if (rabbitVisible) {
-        const camDir = new THREE.Vector3();
-        camera.getWorldDirection(camDir);
-        const toRabbit = rabbit.position.clone().sub(camera.position).normalize();
-        if (camDir.angleTo(toRabbit) < 0.3) {
-          scene.remove(rabbit);
-          rabbitVisible = false;
-        }
-      }
     }
 
     // --- Animate ---
