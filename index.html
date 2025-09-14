@@ -116,6 +116,7 @@
 
     // Scatter trees but keep a clearing near the spawn
     const rng = (min,max)=>Math.random()*(max-min)+min;
+    const trees = [];
     for (let i=0;i<220;i++){
       const t = makeTree();
       const r = groundSize*0.48;
@@ -127,6 +128,7 @@
       t.rotation.y = rng(0, Math.PI*2);
       const s = rng(0.8, 1.4); t.scale.setScalar(s);
       scene.add(t);
+      trees.push(t);
     }
 
     // --- Player (generic low‑poly, Fortnite‑inspired POV) ---
@@ -157,6 +159,50 @@
     player.add(body, head, legL, legR, armL, armR);
     player.position.set(0, 0, 0);
     scene.add(player);
+
+    let rabbit;
+    function makeRabbit(){
+      const g = new THREE.Group();
+
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.6,16,12), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+      body.position.y = 0.6; body.castShadow = body.receiveShadow = true;
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.4,16,12), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+      head.position.set(0,1.2,0.4); head.castShadow = head.receiveShadow = true;
+
+      const earGeo = new THREE.BoxGeometry(0.15,0.7,0.15);
+      const earMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      const earL = new THREE.Mesh(earGeo, earMat); earL.position.set(-0.2,1.7,0.3);
+      const earR = earL.clone(); earR.position.x = 0.2;
+
+      const eyeGeo = new THREE.SphereGeometry(0.06,8,6);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.1,1.3,0.7);
+      const eyeR = eyeL.clone(); eyeR.position.x = 0.1;
+
+      const blood = new THREE.Mesh(new THREE.CircleGeometry(0.9,20), new THREE.MeshBasicMaterial({ color: 0xaa0000 }));
+      blood.rotation.x = -Math.PI/2;
+      blood.position.set(0,0.01,-1);
+
+      g.add(body, head, earL, earR, eyeL, eyeR, blood);
+      g.scale.setScalar(3);
+      return g;
+    }
+
+    function spawnScaryRabbit(){
+      const candidates = trees.filter(t => {
+        const d = t.position.distanceTo(player.position);
+        return d > 15 && d < 50;
+      });
+      if(!candidates.length) return;
+      const tree = candidates[Math.floor(Math.random()*candidates.length)];
+      rabbit = makeRabbit();
+      const dir = tree.position.clone().sub(player.position).normalize();
+      const pos = tree.position.clone().add(dir.multiplyScalar(2.5));
+      rabbit.position.set(pos.x,0,pos.z);
+      rabbit.lookAt(player.position.x, 0, player.position.z);
+      scene.add(rabbit);
+    }
 
     // --- Controls state ---
     let yaw = 0; // horizontal aim
@@ -264,6 +310,16 @@
       const camAim = camera.position.clone().add(pitched);
       camera.lookAt(camAim);
 
+      // Check if the scary rabbit is being stared at
+      if (rabbit && rabbit.parent){
+        const camDir = new THREE.Vector3();
+        camera.getWorldDirection(camDir);
+        const toRabbit = rabbit.position.clone().sub(camera.position).normalize();
+        if (camDir.angleTo(toRabbit) < 0.15){
+          scene.remove(rabbit);
+        }
+      }
+
       // Bullets update
       const now = performance.now();
       for (let i=bullets.length-1;i>=0;i--){
@@ -291,6 +347,8 @@
     player.position.set(0,0,8);
     camera.position.set(-2.5, 2.2, 12);
     camera.lookAt(player.position.x, 1.3, player.position.z);
+
+    spawnScaryRabbit();
 
     // Resize
     addEventListener('resize', ()=>{
