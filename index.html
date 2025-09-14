@@ -40,7 +40,7 @@
 <body>
   <div id="app"></div>
   <div class="crosshair"></div>
-  <div class="hint" id="hint">Middle‑click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
+  <div class="hint" id="hint">Click to lock the mouse (press <b>Esc</b> to release). <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
 
   <script type="module">
@@ -246,18 +246,23 @@
     }
 
     // --- Input ---
-    addEventListener('keydown', e=>{ keys.add(e.code); });
+    addEventListener('keydown', e=>{
+      keys.add(e.code);
+      if (e.code === 'Escape' && pointerLocked) {
+        document.exitPointerLock();
+      }
+    });
     addEventListener('keyup',   e=>{ keys.delete(e.code); });
 
     // Pointer lock for mouse look
     const hint = document.getElementById('hint');
     addEventListener('mousedown', (e) => {
-      if (e.button === 1 && !pointerLocked) {
-        // middle mouse initiates pointer lock
+      if (e.button !== 0) return;
+      if (!pointerLocked) {
+        // first click locks pointer
         renderer.domElement.requestPointerLock();
-        e.preventDefault();
-      } else if (e.button === 0 && pointerLocked) {
-        // left click while locked shoots
+      } else {
+        // subsequent clicks shoot
         shoot();
       }
     });
@@ -271,7 +276,7 @@
       if(!pointerLocked) return;
       const sensitivity = 0.0027;
       yaw   -= e.movementX * sensitivity;
-      pitch -= e.movementY * sensitivity;
+      pitch += e.movementY * sensitivity;
       pitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, pitch));
     });
 
@@ -307,21 +312,15 @@
       // Aim the right arm toward where camera looks (rough)
       armR.rotation.x = -pitch * 0.75;
 
-      // Update camera behind/over shoulder
-      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0));
+      // Update camera around player based on yaw & pitch
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
       const offsetWorld = camOffset.clone().applyQuaternion(q);
       const camPos = player.position.clone().add(offsetWorld);
       camera.position.lerp(camPos, 0.85); // smoothed
 
       // Camera look target slightly above player
       const lookTarget = player.position.clone().add(new THREE.Vector3(0, 1.3, 0));
-      const targetDir = lookTarget.clone().sub(camera.position).normalize();
-
-      // Apply pitch around player's right vector
-      const rightVec = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), targetDir).normalize();
-      const pitched = targetDir.clone().applyAxisAngle(rightVec, pitch);
-      const camAim = camera.position.clone().add(pitched);
-      camera.lookAt(camAim);
+      camera.lookAt(lookTarget);
 
       // Bullets update
       const now = performance.now();
