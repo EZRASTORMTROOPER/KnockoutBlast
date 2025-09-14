@@ -35,6 +35,23 @@
       text-align: center;
     }
     .hidden { display: none; }
+    /* Day/Night cycle UI */
+    .cycle {
+      position: fixed; top: 16px; right: 16px;
+      width: 60px; height: 60px; border-radius: 50%;
+      background: conic-gradient(#fcd34d var(--progress,0deg), #1e293b 0deg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+    }
+    /* Health bar */
+    .health-bar {
+      position: fixed; left: 16px; top: 16px; width: 200px; height: 14px;
+      background: rgba(0,0,0,0.6); border-radius: 7px; box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+    }
+    .health-bar div {
+      height: 100%; background: #ef4444; border-radius: 7px;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -42,6 +59,8 @@
   <div class="crosshair"></div>
   <div class="hint" id="hint">Middle‑click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
+  <div id="cycle" class="cycle"><span id="cycleIcon">☀️</span></div>
+  <div class="health-bar"><div id="health"></div></div>
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
@@ -57,6 +76,15 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x7fb0ff);
     scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
+    const cycleEl = document.getElementById('cycle');
+    const cycleIcon = document.getElementById('cycleIcon');
+    const healthEl = document.getElementById('health');
+    let playerHealth = 100;
+    function updateHealth(){ healthEl.style.width = playerHealth + '%'; }
+    updateHealth();
+    let timeOfDay = 0;
+    const cycleDuration = 60; // seconds for full day/night
+    let isNight = false;
 
     // --- Camera (third‑person follow) ---
     const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
@@ -199,21 +227,35 @@
 
     const rabbit = makeScaryRabbit();
     let rabbitVisible = false;
+    let playerGrabbed = false;
+    let rabbitFleeing = false;
+    const rabbitRunDir = new THREE.Vector3();
 
-    function spawnRabbit() {
-      const candidates = trees.filter(t => {
-        const d = t.position.distanceTo(player.position);
-        return d > 15 && d < 45;
-      });
-      if (candidates.length === 0) return;
-      const tree = candidates[Math.floor(Math.random() * candidates.length)];
-      const away = player.position.clone().sub(tree.position).normalize();
-      rabbit.position.copy(tree.position.clone().add(away.multiplyScalar(-2.2)));
-      scene.add(rabbit);
-      rabbitVisible = true;
+    function rabbitFlee(){
+      rabbitFleeing = true;
+      playerGrabbed = false;
+      rabbitRunDir.copy(rabbit.position.clone().sub(player.position).normalize().multiplyScalar(10));
     }
 
-    spawnRabbit();
+    function makeCave(){
+      const g = new THREE.Group();
+      const shell = new THREE.Mesh(
+        new THREE.CylinderGeometry(3,3,2,16,1,true,Math.PI/2,Math.PI),
+        new THREE.MeshLambertMaterial({ color: 0x333333, side: THREE.DoubleSide })
+      );
+      shell.position.y = 1;
+      const floor = new THREE.Mesh(
+        new THREE.CircleGeometry(3,16),
+        new THREE.MeshLambertMaterial({ color: 0x444444 })
+      );
+      floor.rotation.x = -Math.PI/2;
+      g.add(shell, floor);
+      return g;
+    }
+
+    const cave = makeCave();
+    cave.position.set(-25,0,-25);
+    scene.add(cave);
 
     // --- Controls state ---
     let yaw = 0; // horizontal aim
@@ -257,8 +299,12 @@
         renderer.domElement.requestPointerLock();
         e.preventDefault();
       } else if (e.button === 0 && pointerLocked) {
-        // left click while locked shoots
-        shoot();
+        if (playerGrabbed && onGround) {
+          rabbitFlee();
+        } else if (!playerGrabbed) {
+          // left click while locked shoots
+          shoot();
+        }
       }
     });
 
@@ -278,8 +324,33 @@
     // --- Movement & simple ground physics ---
     let velY = 0; // vertical velocity for jumping/gravity
     const GRAV = 22;
+    let onGround = true;
 
     function update(dt){
+      // Day/Night cycle
+      timeOfDay += dt;
+      const phase = (timeOfDay % cycleDuration) / cycleDuration;
+      cycleEl.style.setProperty('--progress', `${phase*360}deg`);
+      const nowNight = phase >= 0.5;
+      cycleIcon.textContent = nowNight ? '🌙' : '☀️';
+      if (nowNight !== isNight) {
+        isNight = nowNight;
+        if (isNight) {
+          scene.background.set(0x000000);
+          scene.fog.color.set(0x000000);
+          scene.fog.near = 1; scene.fog.far = 40;
+          hemi.intensity = 0.2; sun.intensity = 0.1;
+          rabbit.position.copy(cave.position.clone().add(new THREE.Vector3(0,0,2)));
+          scene.add(rabbit); rabbitVisible = true; rabbitFleeing=false; playerGrabbed=false;
+        } else {
+          scene.background.set(0x7fb0ff);
+          scene.fog.color.set(0x7fb0ff);
+          scene.fog.near = 20; scene.fog.far = 140;
+          hemi.intensity = 0.6; sun.intensity = 1.0;
+          if(rabbitVisible){ scene.remove(rabbit); rabbitVisible=false; rabbitFleeing=false; playerGrabbed=false; }
+        }
+      }
+
       // Move on XZ using yaw (aim direction)
       const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
       const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
@@ -291,12 +362,12 @@
       if (keys.has('KeyA')) move.add(right.clone().multiplyScalar(-1));
       if (move.lengthSq()>0) move.normalize().multiplyScalar(speed*dt);
 
-      player.position.add(move);
+      if (!playerGrabbed) player.position.add(move);
 
       // Jump
-      const onGround = player.position.y <= 0.0 + 0.001;
+      onGround = player.position.y <= 0.0 + 0.001;
       if (onGround) { player.position.y = 0; velY = 0; }
-      if (onGround && keys.has('Space')) velY = 7.5;
+      if (onGround && keys.has('Space') && !playerGrabbed) velY = 7.5;
       velY -= GRAV * dt;
       player.position.y += velY * dt;
       if (player.position.y < 0) { player.position.y = 0; velY = 0; }
@@ -328,6 +399,11 @@
       for (let i=bullets.length-1;i>=0;i--){
         const b = bullets[i];
         b.mesh.position.addScaledVector(b.vel, dt);
+        if (rabbitVisible && b.mesh.position.distanceTo(rabbit.position) < 1){
+          scene.remove(b.mesh); bullets.splice(i,1);
+          rabbitFlee();
+          continue;
+        }
         const life = (now - b.born) / 3000;
         b.mesh.scale.setScalar(Math.max(0, 1 - life));
         // remove old or out-of-bounds bullets
@@ -336,14 +412,26 @@
         }
       }
 
-      // Remove rabbit if looked at
+      // Rabbit behavior
       if (rabbitVisible) {
-        const camDir = new THREE.Vector3();
-        camera.getWorldDirection(camDir);
-        const toRabbit = rabbit.position.clone().sub(camera.position).normalize();
-        if (camDir.angleTo(toRabbit) < 0.3) {
-          scene.remove(rabbit);
-          rabbitVisible = false;
+        if (playerGrabbed) {
+          const toCave = cave.position.clone().sub(rabbit.position).normalize();
+          rabbit.position.addScaledVector(toCave, 3*dt);
+          player.position.copy(rabbit.position);
+        } else if (!rabbitFleeing && isNight) {
+          const dir = player.position.clone().sub(rabbit.position).normalize();
+          rabbit.position.addScaledVector(dir, 2*dt);
+          if (rabbit.position.distanceTo(player.position) < 1){
+            playerGrabbed = true;
+            playerHealth = Math.max(0, playerHealth/2);
+            updateHealth();
+          }
+        }
+        if (rabbitFleeing){
+          rabbit.position.addScaledVector(rabbitRunDir, dt);
+          if (rabbit.position.distanceTo(player.position) > 40){
+            scene.remove(rabbit); rabbitVisible=false; rabbitFleeing=false;
+          }
         }
       }
     }
