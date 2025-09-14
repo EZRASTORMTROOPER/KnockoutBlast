@@ -34,6 +34,21 @@
       box-shadow: 0 6px 24px rgba(0,0,0,0.35);
       text-align: center;
     }
+    .cycle-ui {
+      position: fixed; top: 16px; right: 16px; width: 48px; height: 48px;
+    }
+    .cycle-ui svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .cycle-ui .track {
+      stroke: rgba(255,255,255,0.25); stroke-width: 2; fill: none;
+    }
+    .cycle-ui .progress {
+      stroke: #fff; stroke-width: 2; fill: none; stroke-linecap: round;
+      stroke-dasharray: 100 100; stroke-dashoffset: 100;
+    }
+    .cycle-ui .icon {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
     .hidden { display: none; }
   </style>
 </head>
@@ -42,6 +57,13 @@
   <div class="crosshair"></div>
   <div class="hint" id="hint">Middle‑click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
+  <div id="cycleUI" class="cycle-ui">
+    <svg viewBox="0 0 36 36">
+      <path class="track" d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32"/>
+      <path id="cycleProgress" class="progress" d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32"/>
+    </svg>
+    <span id="cycleIcon" class="icon">☀️</span>
+  </div>
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
@@ -57,6 +79,14 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x7fb0ff);
     scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
+
+    const cycleIcon = document.getElementById('cycleIcon');
+    const cycleProgress = document.getElementById('cycleProgress');
+    const DAY_LENGTH = 30000; // ms of daylight
+    const NIGHT_LENGTH = 30000; // ms of night
+    const CYCLE_LENGTH = DAY_LENGTH + NIGHT_LENGTH;
+    let cycleTime = 0;
+    let lastIsDay = true;
 
     // --- Camera (third‑person follow) ---
     const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
@@ -198,28 +228,40 @@
     }
 
     const rabbit = makeScaryRabbit();
-    let rabbitVisible = false;
+    const rabbitHome = new THREE.Vector3(-60,0,-60);
+    const caveGeo = new THREE.CylinderGeometry(3,3,3,16,1,true);
+    const caveMat = new THREE.MeshLambertMaterial({color:0x4b4b4b, side:THREE.DoubleSide});
+    const cave = new THREE.Mesh(caveGeo, caveMat);
+    cave.rotation.z = Math.PI/2;
+    cave.position.copy(rabbitHome);
+    scene.add(cave);
 
-    function spawnRabbit() {
-      const candidates = trees.filter(t => {
-        const d = t.position.distanceTo(player.position);
-        return d > 15 && d < 45;
-      });
-      if (candidates.length === 0) return;
-      const tree = candidates[Math.floor(Math.random() * candidates.length)];
-      const away = player.position.clone().sub(tree.position).normalize();
-      rabbit.position.copy(tree.position.clone().add(away.multiplyScalar(-2.2)));
-      scene.add(rabbit);
-      rabbitVisible = true;
+    let rabbitVisible = false;
+    let rabbitChasing = false;
+    let rabbitGrabbed = false;
+    let playerHealth = 100;
+
+    function rabbitRunAway(){
+      scene.remove(rabbit);
+      rabbitVisible = false;
+      rabbitChasing = false;
+      rabbitGrabbed = false;
+      rabbit.position.copy(rabbitHome);
     }
 
-    spawnRabbit();
+    function spawnRabbit() {
+      rabbit.position.copy(rabbitHome.clone());
+      scene.add(rabbit);
+      rabbitVisible = true;
+      rabbitChasing = true;
+    }
 
     // --- Controls state ---
     let yaw = 0; // horizontal aim
     let pitch = 0; // vertical aim (for camera only)
     const keys = new Set();
     let pointerLocked = false;
+    let onGround = false;
 
     // Camera offset relative to player in local space (over‑the‑shoulder)
     const camOffset = new THREE.Vector3(-2.5, 1.8, 3.8); // left shoulder & back
@@ -252,6 +294,10 @@
     // Pointer lock for mouse look
     const hint = document.getElementById('hint');
     addEventListener('mousedown', (e) => {
+      if (e.button === 0 && rabbitGrabbed && onGround){
+        rabbitRunAway();
+        return;
+      }
       if (e.button === 1 && !pointerLocked) {
         // middle mouse initiates pointer lock
         renderer.domElement.requestPointerLock();
@@ -280,6 +326,30 @@
     const GRAV = 22;
 
     function update(dt){
+      cycleTime = (cycleTime + dt*1000) % CYCLE_LENGTH;
+      const phaseTime = cycleTime < DAY_LENGTH ? cycleTime : cycleTime - DAY_LENGTH;
+      const phaseLen = cycleTime < DAY_LENGTH ? DAY_LENGTH : NIGHT_LENGTH;
+      const ratio = phaseTime / phaseLen;
+      cycleProgress.style.strokeDashoffset = 100 - ratio * 100;
+      const nowIsDay = cycleTime < DAY_LENGTH;
+      cycleIcon.textContent = nowIsDay ? '☀️' : '🌙';
+      if (nowIsDay !== lastIsDay){
+        lastIsDay = nowIsDay;
+        if (nowIsDay){
+          scene.background.set(0x7fb0ff);
+          scene.fog.color.set(0x7fb0ff);
+          scene.fog.near = 20; scene.fog.far = 140;
+          sun.intensity = 1.0; hemi.intensity = 0.6;
+          rabbitRunAway();
+        } else {
+          scene.background.set(0x000000);
+          scene.fog.color.set(0x000000);
+          scene.fog.near = 2; scene.fog.far = 40;
+          sun.intensity = 0.1; hemi.intensity = 0.1;
+          spawnRabbit();
+        }
+      }
+
       // Move on XZ using yaw (aim direction)
       const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
       const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
@@ -294,7 +364,7 @@
       player.position.add(move);
 
       // Jump
-      const onGround = player.position.y <= 0.0 + 0.001;
+      onGround = player.position.y <= 0.0 + 0.001;
       if (onGround) { player.position.y = 0; velY = 0; }
       if (onGround && keys.has('Space')) velY = 7.5;
       velY -= GRAV * dt;
@@ -331,19 +401,27 @@
         const life = (now - b.born) / 3000;
         b.mesh.scale.setScalar(Math.max(0, 1 - life));
         // remove old or out-of-bounds bullets
+        if (rabbitVisible && b.mesh.position.distanceTo(rabbit.position) < 1){
+          rabbitRunAway();
+          scene.remove(b.mesh); bullets.splice(i,1); continue;
+        }
         if (life > 1 || b.mesh.position.length() > groundSize) {
           scene.remove(b.mesh); bullets.splice(i,1);
         }
       }
 
-      // Remove rabbit if looked at
-      if (rabbitVisible) {
-        const camDir = new THREE.Vector3();
-        camera.getWorldDirection(camDir);
-        const toRabbit = rabbit.position.clone().sub(camera.position).normalize();
-        if (camDir.angleTo(toRabbit) < 0.3) {
-          scene.remove(rabbit);
-          rabbitVisible = false;
+      if (rabbitVisible){
+        if (rabbitChasing && !rabbitGrabbed){
+          const dir = player.position.clone().sub(rabbit.position).normalize();
+          rabbit.position.addScaledVector(dir, 3*dt);
+          if (rabbit.position.distanceTo(player.position) < 1.2){
+            rabbitGrabbed = true;
+            playerHealth *= 0.5;
+          }
+        }
+        if (rabbitGrabbed){
+          const dragDir = rabbit.position.clone().sub(player.position).normalize();
+          player.position.addScaledVector(dragDir, 2*dt);
         }
       }
     }
