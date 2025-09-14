@@ -16,6 +16,15 @@
       user-select: none; pointer-events: none;
     }
     .ui b { color: #fff; }
+    .panel {
+      position: fixed; top: 16px; right: 16px;
+      padding: 10px 14px; border-radius: 14px;
+      background: rgba(0,0,0,0.45); color: #f1f5f9;
+      font: 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(4px);
+      pointer-events: auto;
+    }
+    .panel input[type="range"] { width: 200px; }
     .crosshair {
       position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
       width: 14px; height: 14px; pointer-events: none; opacity: 0.85;
@@ -42,6 +51,10 @@
   <div class="crosshair"></div>
   <div class="hint" id="hint">Middle‑click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
+  <div class="panel">
+    <label>Balls to dispense: <span id="ballCount">2000</span></label><br />
+    <input type="range" id="ballSlider" min="100" max="10000" step="100" value="2000" />
+  </div>
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
@@ -224,26 +237,72 @@
     // Camera offset relative to player in local space (over‑the‑shoulder)
     const camOffset = new THREE.Vector3(-2.5, 1.8, 3.8); // left shoulder & back
 
-    // --- Bullets ---
-    const bullets = [];
-    const bulletGeo = new THREE.SphereGeometry(0.1, 12, 8);
-    const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
+    // --- Balls & dispensers ---
+    const balls = [];
+    const ballGeo = new THREE.SphereGeometry(0.3, 16, 8);
+    const ballMat = new THREE.MeshStandardMaterial({ color: 0xff4444 });
+
+    let maxBalls = 2000;
+    let totalDispensed = 0;
+
+    const slider = document.getElementById('ballSlider');
+    const ballCount = document.getElementById('ballCount');
+    ballCount.textContent = slider.value;
+    slider.addEventListener('input', () => {
+      maxBalls = parseInt(slider.value);
+      ballCount.textContent = slider.value;
+      totalDispensed = 0;
+    });
+
+    function spawnBall(pos, vel){
+      if (totalDispensed >= maxBalls) return;
+      const mesh = new THREE.Mesh(ballGeo, ballMat.clone());
+      mesh.position.copy(pos);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh);
+      balls.push({ mesh, vel });
+      totalDispensed++;
+    }
 
     function shoot(){
       // Muzzle position slightly in front/right of player chest, aligned with aim
       const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
       const muzzleWorld = player.localToWorld(muzzle.clone());
 
-      // Forward direction from camera (aim)
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir);
 
-      const mesh = new THREE.Mesh(bulletGeo, bulletMat);
-      mesh.position.copy(muzzleWorld);
-      scene.add(mesh);
-
-      bullets.push({ mesh, vel: dir.multiplyScalar(38), born: performance.now() });
+      spawnBall(muzzleWorld, dir.multiplyScalar(38));
     }
+
+    const dispensers = [];
+    function createDispenser(pos){
+      const geo = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
+      const mat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(pos);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh);
+      dispensers.push({ mesh, timer: 0 });
+    }
+
+    createDispenser(new THREE.Vector3(-10, 0.5, -10));
+    createDispenser(new THREE.Vector3(10, 0.5, -10));
+
+    const bouncers = [];
+    function addBouncer(x, z){
+      const geo = new THREE.BoxGeometry(4, 1, 4);
+      const mat = new THREE.MeshLambertMaterial({ color: 0xffaa00 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x, 0.5, z);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh);
+      bouncers.push(mesh);
+    }
+
+    addBouncer(0, 0);
+    addBouncer(15, -10);
+    addBouncer(-20, 20);
 
     // --- Input ---
     addEventListener('keydown', e=>{ keys.add(e.code); });
@@ -323,16 +382,61 @@
       const camAim = camera.position.clone().add(pitched);
       camera.lookAt(camAim);
 
-      // Bullets update
-      const now = performance.now();
-      for (let i=bullets.length-1;i>=0;i--){
-        const b = bullets[i];
+      // Dispensers spawn
+      for (const d of dispensers){
+        d.timer += dt;
+        if (d.timer >= 1){
+          d.timer = 0;
+          const dir = new THREE.Vector3(Math.random()*2-1, 1, Math.random()*2-1).normalize();
+          const start = d.mesh.position.clone().add(new THREE.Vector3(0,0.6,0));
+          spawnBall(start, dir.multiplyScalar(10));
+        }
+      }
+
+      // Ball physics
+      for (let i=balls.length-1;i>=0;i--){
+        const b = balls[i];
+        b.vel.y -= GRAV * dt;
         b.mesh.position.addScaledVector(b.vel, dt);
-        const life = (now - b.born) / 3000;
-        b.mesh.scale.setScalar(Math.max(0, 1 - life));
-        // remove old or out-of-bounds bullets
-        if (life > 1 || b.mesh.position.length() > groundSize) {
-          scene.remove(b.mesh); bullets.splice(i,1);
+
+        // ground bounce
+        if (b.mesh.position.y - 0.3 < 0){
+          b.mesh.position.y = 0.3;
+          b.vel.y = Math.abs(b.vel.y) * 0.7;
+          b.mesh.scale.multiplyScalar(0.7);
+        }
+
+        // world bounds bounce
+        if (Math.abs(b.mesh.position.x) > groundSize*0.5){
+          b.mesh.position.x = Math.sign(b.mesh.position.x) * groundSize*0.5;
+          b.vel.x *= -0.7;
+          b.mesh.scale.multiplyScalar(0.7);
+        }
+        if (Math.abs(b.mesh.position.z) > groundSize*0.5){
+          b.mesh.position.z = Math.sign(b.mesh.position.z) * groundSize*0.5;
+          b.vel.z *= -0.7;
+          b.mesh.scale.multiplyScalar(0.7);
+        }
+
+        // bouncer collisions (simple AABB)
+        for (const box of bouncers){
+          const minX = box.position.x - 2;
+          const maxX = box.position.x + 2;
+          const minZ = box.position.z - 2;
+          const maxZ = box.position.z + 2;
+          const top = box.position.y + 0.5;
+          if (b.mesh.position.x > minX && b.mesh.position.x < maxX &&
+              b.mesh.position.z > minZ && b.mesh.position.z < maxZ &&
+              b.mesh.position.y <= top){
+            b.vel.x *= -0.7;
+            b.vel.z *= -0.7;
+            b.mesh.scale.multiplyScalar(0.7);
+          }
+        }
+
+        if (b.mesh.scale.x < 0.05){
+          scene.remove(b.mesh);
+          balls.splice(i,1);
         }
       }
 
