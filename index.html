@@ -35,6 +35,14 @@
       text-align: center;
     }
     .hidden { display: none; }
+    #settings {
+      position: fixed; top: 16px; right: 16px;
+      padding: 10px 14px; border-radius: 14px;
+      background: rgba(20,22,24,0.65); color: #e9eef5; font: 14px/1.4 system-ui,-apple-system, Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
+    }
+    #settings label { display: block; margin-bottom: 4px; }
+    #settings input { width: 160px; }
   </style>
 </head>
 <body>
@@ -42,6 +50,10 @@
   <div class="crosshair"></div>
   <div class="hint" id="hint">Middle‑click to lock the mouse. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
+  <div id="settings">
+    <label>Balls: <span id="ballCountLabel">2000</span></label>
+    <input type="range" id="ballCount" min="100" max="10000" value="2000">
+  </div>
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
@@ -229,6 +241,54 @@
     const bulletGeo = new THREE.SphereGeometry(0.1, 12, 8);
     const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
 
+    const ballSlider = document.getElementById('ballCount');
+    const ballLabel = document.getElementById('ballCountLabel');
+    let ballLimit = parseInt(ballSlider.value,10);
+    ballSlider.addEventListener('input', ()=>{
+      ballLimit = parseInt(ballSlider.value,10);
+      ballLabel.textContent = ballLimit;
+    });
+    let totalDispensed = 0;
+
+    const dispensers = [];
+    function makeDispenser(pos){
+      const geo = new THREE.BoxGeometry(0.6,0.6,0.6);
+      const mat = new THREE.MeshLambertMaterial({ color: 0xffaa00 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(pos);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh);
+      return {mesh, lastShot:0};
+    }
+    dispensers.push(makeDispenser(new THREE.Vector3(5,0.3,5)));
+    dispensers.push(makeDispenser(new THREE.Vector3(-5,0.3,-5)));
+
+    const balls = [];
+    const ballGeo = new THREE.SphereGeometry(0.5,16,12);
+    const ballMat = new THREE.MeshLambertMaterial({ color: 0x6699ff });
+
+    function spawnBall(d){
+      const mesh = new THREE.Mesh(ballGeo, ballMat.clone());
+      mesh.position.copy(d.mesh.position);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      const dir = new THREE.Vector3(Math.random()-0.5, Math.random()*0.5+0.2, Math.random()-0.5).normalize();
+      const vel = dir.multiplyScalar(6);
+      balls.push({mesh, vel, scale:1});
+      scene.add(mesh);
+    }
+
+    const bouncers = [];
+    function makeBouncer(pos, radius){
+      const geo = new THREE.SphereGeometry(radius,16,12);
+      const mat = new THREE.MeshLambertMaterial({ color: 0xff4444 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(pos);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      scene.add(mesh);
+      bouncers.push({mesh, radius});
+    }
+    makeBouncer(new THREE.Vector3(0,1,0), 1.5);
+
     function shoot(){
       // Muzzle position slightly in front/right of player chest, aligned with aim
       const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
@@ -333,6 +393,50 @@
         // remove old or out-of-bounds bullets
         if (life > 1 || b.mesh.position.length() > groundSize) {
           scene.remove(b.mesh); bullets.splice(i,1);
+        }
+      }
+
+      // Dispensers shoot balls
+      for (const d of dispensers){
+        if (totalDispensed < ballLimit && now - d.lastShot > 1000){
+          spawnBall(d);
+          d.lastShot = now;
+          totalDispensed++;
+        }
+      }
+
+      // Balls update and interactions
+      for (let i=balls.length-1;i>=0;i--){
+        const ball = balls[i];
+        ball.mesh.position.addScaledVector(ball.vel, dt);
+        if (ball.mesh.position.y < 0.5){
+          ball.mesh.position.y = 0.5;
+          ball.vel.y = Math.abs(ball.vel.y);
+        }
+        for (const bn of bouncers){
+          const dist = ball.mesh.position.distanceTo(bn.mesh.position);
+          const minDist = bn.radius + 0.5*ball.scale;
+          if (dist < minDist){
+            const normal = ball.mesh.position.clone().sub(bn.mesh.position).normalize();
+            ball.vel.reflect(normal);
+            ball.mesh.position.add(normal.multiplyScalar(minDist - dist));
+          }
+        }
+        for (let j=bullets.length-1;j>=0;j--){
+          const b = bullets[j];
+          const rad = 0.5*ball.scale + 0.1;
+          if (ball.mesh.position.distanceTo(b.mesh.position) < rad){
+            ball.scale *= 0.7;
+            ball.mesh.scale.setScalar(ball.scale);
+            scene.remove(b.mesh); bullets.splice(j,1);
+            if (ball.scale < 0.15){
+              scene.remove(ball.mesh); balls.splice(i,1);
+            }
+            break;
+          }
+        }
+        if (ball.mesh.position.length() > groundSize){
+          scene.remove(ball.mesh); balls.splice(i,1);
         }
       }
 
