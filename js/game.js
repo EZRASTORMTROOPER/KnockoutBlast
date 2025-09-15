@@ -11,6 +11,14 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 app.appendChild(renderer.domElement);
+const settingsEl = document.getElementById('settings');
+let paused = false;
+function toggleSettings(){
+  paused = !paused;
+  settingsEl.classList.toggle('hidden', !paused);
+  controls.keys.clear();
+}
+settingsEl.addEventListener('mousedown', e => e.stopPropagation());
 
 // UI controls
 const ballSlider = document.getElementById('ballSlider');
@@ -19,6 +27,57 @@ let maxBalls = parseInt(ballSlider.value);
 ballSlider.addEventListener('input', () => {
   ballCountLabel.textContent = ballSlider.value;
   maxBalls = parseInt(ballSlider.value);
+});
+
+const volumeSlider = document.getElementById('volumeSlider');
+const volumeLabel = document.getElementById('volumeLabel');
+let volume = parseInt(volumeSlider.value) / 100;
+const bgm = new Audio('audio/horror-drone.wav');
+bgm.loop = true;
+bgm.volume = volume;
+
+const faceSlider = document.getElementById('faceSlider');
+const faceLabel = document.getElementById('faceLabel');
+let faceForward = parseFloat(faceSlider.value);
+
+const healthSlider = document.getElementById('healthSlider');
+const healthLabel = document.getElementById('healthLabel');
+let rabbitMaxHealth = parseInt(healthSlider.value);
+
+const bulletDamageSlider = document.getElementById('bulletDamageSlider');
+const bulletDamageLabel = document.getElementById('bulletDamageLabel');
+let bulletDamage = parseInt(bulletDamageSlider.value);
+
+const ballDamageSlider = document.getElementById('ballDamageSlider');
+const ballDamageLabel = document.getElementById('ballDamageLabel');
+let ballDamage = parseInt(ballDamageSlider.value);
+
+volumeSlider.addEventListener('input', () => {
+  volume = parseInt(volumeSlider.value) / 100;
+  volumeLabel.textContent = volumeSlider.value + '%';
+  bgm.volume = volume;
+});
+
+faceSlider.addEventListener('input', () => {
+  faceForward = parseFloat(faceSlider.value);
+  faceLabel.textContent = faceSlider.value;
+  rabbits.forEach(r => r.faceForward = faceForward);
+});
+
+healthSlider.addEventListener('input', () => {
+  rabbitMaxHealth = parseInt(healthSlider.value);
+  healthLabel.textContent = healthSlider.value;
+  rabbits.forEach(r => { r.maxHealth = rabbitMaxHealth; r.health = Math.min(r.health, rabbitMaxHealth); });
+});
+
+bulletDamageSlider.addEventListener('input', () => {
+  bulletDamage = parseInt(bulletDamageSlider.value);
+  bulletDamageLabel.textContent = bulletDamageSlider.value;
+});
+
+ballDamageSlider.addEventListener('input', () => {
+  ballDamage = parseInt(ballDamageSlider.value);
+  ballDamageLabel.textContent = ballDamageSlider.value;
 });
 
 const scene = new THREE.Scene();
@@ -147,6 +206,11 @@ const rabbits = [
     onAttack: () => { playerHealth *= 0.5; updateHealthUI(); }
   })
 ];
+rabbits.forEach(r => {
+  r.faceForward = faceForward;
+  r.maxHealth = rabbitMaxHealth;
+  r.health = r.maxHealth;
+});
 const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;
 
@@ -215,6 +279,7 @@ function shootBullet(){
   bullets.push({ mesh, vel: dir.multiplyScalar(38), born: performance.now() });
 }
 function handleClick(){
+  if (bgm.paused) bgm.play();
   const onGround = player.position.y <= 0.001;
   const dragging = rabbits.find(r => r.isDragging);
   if (dragging && onGround) {
@@ -223,7 +288,7 @@ function handleClick(){
     shootBullet();
   }
 }
-initControls(renderer.domElement, handleClick);
+initControls(renderer.domElement, handleClick, toggleSettings);
 
 
 
@@ -304,14 +369,14 @@ function update(dt){
       if (!r.visible) continue;
       const radius = BALL_RADIUS * b.mesh.scale.x;
       if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
-        r.hitByBall();
+        r.hitByBall(ballDamage);
         scene.remove(b.mesh); balls.splice(i,1);
         break;
       }
     }
   }
 
-  // Bullets update and collision with balls
+  // Bullets update and collision with balls and rabbits
   for (let i=bullets.length-1;i>=0;i--){
     const b = bullets[i];
     b.mesh.position.addScaledVector(b.vel, dt);
@@ -320,6 +385,7 @@ function update(dt){
     if (life > 1 || b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); bullets.splice(i,1); continue;
     }
+    let removed = false;
     for (let j = balls.length - 1; j >= 0; j--) {
       const ball = balls[j];
       const radius = BALL_RADIUS * ball.mesh.scale.x;
@@ -329,9 +395,21 @@ function update(dt){
         if (ball.mesh.scale.x < 0.2) {
           scene.remove(ball.mesh); balls.splice(j,1);
         }
+        removed = true;
         break;
       }
     }
+    if (removed) continue;
+    for (const r of rabbits) {
+      if (!r.visible) continue;
+      if (b.mesh.position.distanceTo(r.mesh.position) < 1.5) {
+        r.damage(bulletDamage);
+        scene.remove(b.mesh); bullets.splice(i,1);
+        removed = true;
+        break;
+      }
+    }
+    if (removed) continue;
   }
 
   for (const r of rabbits) {
@@ -345,7 +423,7 @@ function animate(){
   const now = performance.now();
   const dt = Math.min(0.033, (now - last)/1000);
   last = now;
-  update(dt);
+  if (!paused) update(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
