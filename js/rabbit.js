@@ -96,7 +96,8 @@ function createCave() {
     this.scene.add(this.face);
     this.face.visible = false;
     this.headOffset = new THREE.Vector3(0, 2.1, 0);
-    this.headRadius = headRadius + 0.01;
+    this.headRadius = headRadius;
+    this.faceDistance = this.headRadius + 0.01;
 
     // health bar UI
     this.healthBar = document.createElement('div');
@@ -218,7 +219,7 @@ function createCave() {
       if (this.face.visible) {
         const headPos = this.mesh.localToWorld(this.headOffset.clone());
         const dir = this.player.position.clone().sub(headPos).normalize();
-        this.face.position.copy(headPos.clone().addScaledVector(dir, this.headRadius));
+        this.face.position.copy(headPos.clone().addScaledVector(dir, this.faceDistance));
         this.face.lookAt(this.player.position);
       }
     }
