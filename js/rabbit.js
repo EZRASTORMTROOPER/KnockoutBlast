@@ -1,5 +1,7 @@
 import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
 
+const audioLoader = new THREE.AudioLoader();
+
 function makeRabbit() {
   const g = new THREE.Group();
   const body = new THREE.Mesh(
@@ -57,7 +59,7 @@ function createCave() {
 }
 
 export class Rabbit {
-  constructor(scene, player, type, callbacks = {}) {
+  constructor(scene, player, type, listener, callbacks = {}) {
     this.scene = scene;
     this.player = player;
     this.type = type; // 1,2,3
@@ -84,6 +86,15 @@ export class Rabbit {
     scene.add(this.house);
 
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
+
+    // positional audio for screams
+    this.scream = new THREE.PositionalAudio(listener);
+    audioLoader.load('audio/scream.wav', buffer => {
+      this.scream.setBuffer(buffer);
+      this.scream.setRefDistance(5);
+    });
+    this.mesh.add(this.scream);
+    this.lastScream = 0;
 
     // health bar UI
     this.healthBar = document.createElement('div');
@@ -141,6 +152,17 @@ export class Rabbit {
     if (!this.visible) {
       this.updateHealthBar(camera);
       return;
+    }
+
+    if (isNight && this.type === 3 && this.isDragging) {
+      const now = performance.now();
+      if (now - this.lastScream > 3000 && this.scream.buffer) {
+        this.scream.play();
+        this.lastScream = now;
+      }
+    } else {
+      if (this.scream.isPlaying) this.scream.stop();
+      this.lastScream = 0;
     }
 
     if (this.type === 3) {
