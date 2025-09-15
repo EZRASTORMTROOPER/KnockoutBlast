@@ -2,7 +2,8 @@ export const controls = {
   yaw: 0,
   pitch: 0,
   keys: new Set(),
-  pointerLocked: false
+  pointerLocked: false,
+  aiming: false
 };
 
 export function initControls(domElement, shoot) {
@@ -24,7 +25,20 @@ export function initControls(domElement, shoot) {
       e.preventDefault();
     } else if (e.button === 0) {
       shoot();
+    } else if (e.button === 2) {
+      controls.aiming = true;
     }
+  });
+
+  addEventListener('mouseup', e => {
+    if (e.button === 2) {
+      controls.aiming = false;
+    }
+  });
+
+  // Prevent context menu on right click while in pointer lock
+  addEventListener('contextmenu', e => {
+    if (controls.pointerLocked) e.preventDefault();
   });
 
   document.addEventListener('pointerlockchange', () => {
