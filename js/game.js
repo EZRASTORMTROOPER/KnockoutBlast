@@ -1,4 +1,6 @@
 import { controls, initControls } from "./controls.js";
+import { DayNightCycle } from './dayNight.js';
+import { Rabbit } from './rabbit.js';
 import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
 export function startGame() {
 
@@ -125,61 +127,22 @@ player.add(body, head, legL, legR, armL, armR);
 player.position.set(0, 0, 0);
 scene.add(player);
 
-// --- Scary Rabbit ---
-function makeScaryRabbit() {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.SphereGeometry(1.2, 16, 16),
-    new THREE.MeshLambertMaterial({ color: 0xffffff })
-  );
-  body.position.y = 1.2; body.castShadow = true; body.receiveShadow = true;
-
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.8, 16, 16),
-    new THREE.MeshLambertMaterial({ color: 0xffffff })
-  );
-  head.position.y = 2.1; head.castShadow = true;
-
-  const earGeo = new THREE.BoxGeometry(0.3, 1.2, 0.3);
-  const earMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  const earL = new THREE.Mesh(earGeo, earMat);
-  earL.position.set(-0.35, 2.8, 0); earL.castShadow = true;
-  const earR = earL.clone(); earR.position.x = 0.35;
-
-  const eyeGeo = new THREE.SphereGeometry(0.12, 8, 8);
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.2, 2.2, 0.55);
-  const eyeR = eyeL.clone(); eyeR.position.x = 0.2;
-
-  const blood = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.4, 0.6),
-    new THREE.MeshBasicMaterial({ color: 0x8b0000 })
-  );
-  blood.rotation.x = -Math.PI/2; blood.position.set(0, 0, -0.8);
-
-  g.add(body, head, earL, earR, eyeL, eyeR, blood);
-  g.scale.set(2.2, 2.2, 2.2);
-  return g;
+// Player health UI
+let playerHealth = 100;
+const healthEl = document.createElement('div');
+healthEl.className = 'health-ui';
+healthEl.textContent = 'Health: 100';
+document.body.appendChild(healthEl);
+function updateHealthUI() {
+  healthEl.textContent = `Health: ${Math.round(playerHealth)}`;
 }
 
-const rabbit = makeScaryRabbit();
-let rabbitVisible = false;
-
-function spawnRabbit() {
-  const candidates = trees.filter(t => {
-    const d = t.position.distanceTo(player.position);
-    return d > 15 && d < 45;
-  });
-  if (candidates.length === 0) return;
-  const tree = candidates[Math.floor(Math.random() * candidates.length)];
-  const away = player.position.clone().sub(tree.position).normalize();
-  rabbit.position.copy(tree.position.clone().add(away.multiplyScalar(-2.2)));
-  scene.add(rabbit);
-  rabbitVisible = true;
-}
-
-spawnRabbit();
-
+// Rabbit enemy and day/night cycle
+const rabbit = new Rabbit(scene, player, () => {
+  playerHealth *= 0.5;
+  updateHealthUI();
+});
+const dayNight = new DayNightCycle(scene, sun, hemi);
 
 // Camera offset relative to player in local space (over‑the‑shoulder)
 const camOffset = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
@@ -211,7 +174,7 @@ for (const d of dispensers) {
   scene.add(m);
 }
 
-function shoot(){
+function shootBullet(){
   // Muzzle position slightly in front/right of player chest, aligned with aim
   const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
   const muzzleWorld = player.localToWorld(muzzle.clone());
@@ -226,7 +189,15 @@ function shoot(){
 
   bullets.push({ mesh, vel: dir.multiplyScalar(38), born: performance.now() });
 }
-initControls(renderer.domElement, shoot);
+function handleClick(){
+  const onGround = player.position.y <= 0.001;
+  if (rabbit.isDragging && onGround) {
+    rabbit.kick();
+  } else {
+    shootBullet();
+  }
+}
+initControls(renderer.domElement, handleClick);
 
 
 
@@ -235,6 +206,12 @@ let velY = 0; // vertical velocity for jumping/gravity
 const GRAV = 22;
 
 function update(dt){
+  dayNight.update(dt);
+  if (dayNight.isNight) {
+    rabbit.startNight();
+  } else {
+    rabbit.endNight();
+  }
 const { yaw, pitch, keys } = controls;
   const now = performance.now();
   // Move on XZ using yaw (aim direction)
@@ -324,16 +301,7 @@ const { yaw, pitch, keys } = controls;
     }
   }
 
-  // Remove rabbit if looked at
-  if (rabbitVisible) {
-    const camDir = new THREE.Vector3();
-    camera.getWorldDirection(camDir);
-    const toRabbit = rabbit.position.clone().sub(camera.position).normalize();
-    if (camDir.angleTo(toRabbit) < 0.3) {
-      scene.remove(rabbit);
-      rabbitVisible = false;
-    }
-  }
+  rabbit.update(dt);
 }
 
 // --- Animate ---

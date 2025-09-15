@@ -45,6 +45,23 @@
       user-select: none;
     }
     .panel input[type=range] { width: 160px; }
+
+    .cycle-ui {
+      position: fixed; top: 16px; right: 16px;
+      width: 60px; height: 60px;
+    }
+    .cycle-ui svg { width: 100%; height: 100%; }
+    .cycle-ui .bg { stroke: rgba(255,255,255,0.25); stroke-width:4; fill:none; }
+    .cycle-ui .progress { stroke:#fff; stroke-width:4; fill:none; transform: rotate(-90deg); transform-origin: 50% 50%; }
+    .cycle-icon { position: absolute; top:50%; left:50%; transform: translate(-50%, -50%); font-size:24px; }
+    .health-ui {
+      position: fixed; bottom: 16px; left: 16px;
+      padding: 8px 12px; border-radius: 10px;
+      background: rgba(20,22,24,0.65); color: #e9eef5;
+      font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
+      user-select: none;
+    }
   </style>
 </head>
 <body>
