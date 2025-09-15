@@ -7,10 +7,14 @@ export const controls = {
 
 export function initControls(domElement, shoot) {
   const hint = document.getElementById('hint');
+  const settingsMenu = document.getElementById('settingsMenu');
   addEventListener('keydown', e => {
-    if (e.code === 'Escape' && controls.pointerLocked) {
-      document.exitPointerLock();
-    } else {
+    if (e.code === 'Escape') {
+      if (controls.pointerLocked) {
+        document.exitPointerLock();
+      }
+      settingsMenu.classList.toggle('hidden');
+    } else if (settingsMenu.classList.contains('hidden')) {
       controls.keys.add(e.code);
     }
   });
