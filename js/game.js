@@ -205,7 +205,8 @@ function shootBullet(){
     hitPoint = raycaster.ray.at(100, new THREE.Vector3());
   }
 
-  // Aim from the muzzle toward the raycast point so bullets pass through the crosshair
+  // Only match the horizontal aim to the camera; keep the muzzle's height
+  hitPoint.y = muzzleWorld.y;
   const dir = hitPoint.clone().sub(muzzleWorld).normalize();
 
   const mesh = new THREE.Mesh(bulletGeo, bulletMat);
