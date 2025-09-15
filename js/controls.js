@@ -5,11 +5,16 @@ export const controls = {
   pointerLocked: false
 };
 
-export function initControls(domElement, shoot) {
+export function initControls(domElement, shoot, toggleSettings) {
   const hint = document.getElementById('hint');
   addEventListener('keydown', e => {
-    if (e.code === 'Escape' && controls.pointerLocked) {
-      document.exitPointerLock();
+    if (e.code === 'Escape') {
+      if (controls.pointerLocked) {
+        document.exitPointerLock();
+        if (toggleSettings) toggleSettings(true);
+      } else if (toggleSettings) {
+        toggleSettings(false);
+      }
     } else {
       controls.keys.add(e.code);
     }

@@ -35,16 +35,17 @@
       text-align: center;
     }
     .hidden { display: none; }
-
-    .panel {
-      position: fixed; top: 16px; left: 16px;
-      padding: 10px 14px; border-radius: 14px;
-      background: rgba(20,22,24,0.65); color: #e9eef5;
+    .settings {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      min-width: 300px; padding: 20px 24px; border-radius: 16px;
+      background: rgba(20,22,24,0.95); color: #e9eef5;
       font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
-      user-select: none;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+      pointer-events: auto;
     }
-    .panel input[type=range] { width: 160px; }
+    .settings h2 { margin: 0 0 12px; font-size: 18px; }
+    .settings .row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
+    .settings input[type=range] { width: 160px; margin-left: 8px; }
 
     .cycle-ui {
       position: fixed; top: 16px; right: 16px;
@@ -88,9 +89,17 @@
 <body>
   <div id="app"></div>
   <div class="crosshair"></div>
-    <div class="hint" id="hint">Click to lock the mouse (<b>Esc</b> to release). <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
+    <div class="hint" id="hint">Click to lock the mouse. Press <b>Esc</b> for settings. <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
-  <div class="panel">Balls: <input type="range" id="ballSlider" min="100" max="10000" value="2000" /> <span id="ballCountLabel">2000</span></div>
+  <div id="settingsMenu" class="settings hidden">
+    <h2>Settings</h2>
+    <div class="row">Balls: <input type="range" id="ballSlider" min="100" max="10000" value="2000" /> <span id="ballCountLabel">2000</span></div>
+    <div class="row">Volume: <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" /></div>
+    <div class="row">Face Offset: <input type="range" id="faceOffsetSlider" min="0" max="1" step="0.01" value="0.1" /></div>
+    <div class="row">Rabbit Max Health: <input type="range" id="rabbitHealthSlider" min="100" max="1000" step="10" value="500" /> <span id="rabbitHealthLabel">500</span></div>
+    <div class="row">Bullet Damage: <input type="range" id="bulletDamageSlider" min="10" max="200" step="5" value="50" /> <span id="bulletDamageLabel">50</span></div>
+    <div class="row">Ball Damage: <input type="range" id="ballDamageSlider" min="5" max="100" step="5" value="10" /> <span id="ballDamageLabel">10</span></div>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>

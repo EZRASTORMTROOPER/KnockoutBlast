@@ -13,9 +13,30 @@ renderer.shadowMap.enabled = true;
 app.appendChild(renderer.domElement);
 
 // UI controls
+const settingsMenu = document.getElementById('settingsMenu');
+const hintEl = document.getElementById('hint');
+function toggleSettings(show) {
+  settingsMenu.classList.toggle('hidden', !show);
+  hintEl.classList.toggle('hidden', show);
+}
+
 const ballSlider = document.getElementById('ballSlider');
 const ballCountLabel = document.getElementById('ballCountLabel');
+const volumeSlider = document.getElementById('volumeSlider');
+const faceOffsetSlider = document.getElementById('faceOffsetSlider');
+const rabbitHealthSlider = document.getElementById('rabbitHealthSlider');
+const rabbitHealthLabel = document.getElementById('rabbitHealthLabel');
+const bulletDamageSlider = document.getElementById('bulletDamageSlider');
+const bulletDamageLabel = document.getElementById('bulletDamageLabel');
+const ballDamageSlider = document.getElementById('ballDamageSlider');
+const ballDamageLabel = document.getElementById('ballDamageLabel');
+
 let maxBalls = parseInt(ballSlider.value);
+let faceOffset = parseFloat(faceOffsetSlider.value);
+let rabbitMaxHealth = parseInt(rabbitHealthSlider.value);
+let bulletDamage = parseInt(bulletDamageSlider.value);
+let ballDamage = parseInt(ballDamageSlider.value);
+
 ballSlider.addEventListener('input', () => {
   ballCountLabel.textContent = ballSlider.value;
   maxBalls = parseInt(ballSlider.value);
@@ -37,6 +58,9 @@ scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
     nightSound.setBuffer(buffer);
     nightSound.setLoop(true);
     nightSound.setVolume(0.5);
+  });
+  volumeSlider.addEventListener('input', () => {
+    listener.setMasterVolume(parseFloat(volumeSlider.value));
   });
 
 // --- Lights ---
@@ -158,6 +182,29 @@ function updateHealthUI() {
       onAttack: () => { playerHealth *= 0.5; updateHealthUI(); }
     }, listener, audioLoader)
   ];
+for (const r of rabbits) {
+  r.faceOffset = faceOffset;
+  r.maxHealth = rabbitMaxHealth;
+  r.health = rabbitMaxHealth;
+}
+
+faceOffsetSlider.addEventListener('input', () => {
+  faceOffset = parseFloat(faceOffsetSlider.value);
+  rabbits.forEach(r => r.faceOffset = faceOffset);
+});
+rabbitHealthSlider.addEventListener('input', () => {
+  rabbitMaxHealth = parseInt(rabbitHealthSlider.value);
+  rabbitHealthLabel.textContent = rabbitMaxHealth;
+  rabbits.forEach(r => { r.maxHealth = rabbitMaxHealth; r.health = rabbitMaxHealth; });
+});
+bulletDamageSlider.addEventListener('input', () => {
+  bulletDamage = parseInt(bulletDamageSlider.value);
+  bulletDamageLabel.textContent = bulletDamage;
+});
+ballDamageSlider.addEventListener('input', () => {
+  ballDamage = parseInt(ballDamageSlider.value);
+  ballDamageLabel.textContent = ballDamage;
+});
 const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;
 
@@ -234,7 +281,7 @@ function handleClick(){
     shootBullet();
   }
 }
-initControls(renderer.domElement, handleClick);
+initControls(renderer.domElement, handleClick, toggleSettings);
 
 
 
@@ -320,14 +367,14 @@ const GRAV = 22;
       if (!r.visible) continue;
       const radius = BALL_RADIUS * b.mesh.scale.x;
       if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
-        r.hitByBall();
+        r.hitByBall(ballDamage);
         scene.remove(b.mesh); balls.splice(i,1);
         break;
       }
     }
   }
 
-  // Bullets update and collision with balls
+  // Bullets update and collision with balls/rabbits
   for (let i=bullets.length-1;i>=0;i--){
     const b = bullets[i];
     b.mesh.position.addScaledVector(b.vel, dt);
@@ -336,6 +383,7 @@ const GRAV = 22;
     if (life > 1 || b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); bullets.splice(i,1); continue;
     }
+    let hit = false;
     for (let j = balls.length - 1; j >= 0; j--) {
       const ball = balls[j];
       const radius = BALL_RADIUS * ball.mesh.scale.x;
@@ -345,9 +393,21 @@ const GRAV = 22;
         if (ball.mesh.scale.x < 0.2) {
           scene.remove(ball.mesh); balls.splice(j,1);
         }
+        hit = true;
         break;
       }
     }
+    if (hit) continue;
+    for (const r of rabbits) {
+      if (!r.visible) continue;
+      if (b.mesh.position.distanceTo(r.mesh.position) < 1) {
+        r.damage(bulletDamage);
+        scene.remove(b.mesh); bullets.splice(i,1);
+        hit = true;
+        break;
+      }
+    }
+    if (hit) continue;
   }
 
   for (const r of rabbits) {
