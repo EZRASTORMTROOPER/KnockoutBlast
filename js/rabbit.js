@@ -57,7 +57,7 @@ function createCave() {
 }
 
 export class Rabbit {
-  constructor(scene, player, type, callbacks = {}) {
+  constructor(scene, player, type, callbacks = {}, listener) {
     this.scene = scene;
     this.player = player;
     this.type = type; // 1,2,3
@@ -84,6 +84,21 @@ export class Rabbit {
     scene.add(this.house);
 
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
+
+    // audio for screams
+    this.scream = null;
+    this.lastScream = 0;
+    if (listener) {
+      const loader = new THREE.AudioLoader();
+      this.scream = new THREE.PositionalAudio(listener);
+      this.scream.setRefDistance(5);
+      this.scream.setDistanceModel('linear');
+      loader.load('audio/scream.wav', buffer => {
+        this.scream.setBuffer(buffer);
+        this.scream.setLoop(false);
+      });
+      this.mesh.add(this.scream);
+    }
 
     // health bar UI
     this.healthBar = document.createElement('div');
@@ -158,6 +173,13 @@ export class Rabbit {
         const dir = this.home.clone().sub(this.player.position).setY(0).normalize();
         this.player.position.addScaledVector(dir, 2 * dt);
         this.mesh.position.copy(this.player.position);
+        if (isNight && this.scream && this.scream.buffer) {
+          const now = performance.now();
+          if (now - this.lastScream > 3000) {
+            if (!this.scream.isPlaying) this.scream.play();
+            this.lastScream = now;
+          }
+        }
       } else {
         const dir = this.player.position.clone().sub(this.mesh.position);
         dir.y = 0;
