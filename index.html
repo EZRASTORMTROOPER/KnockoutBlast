@@ -19,6 +19,11 @@
     .crosshair {
       position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
       width: 14px; height: 14px; pointer-events: none; opacity: 0.85;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+    .crosshair.aim {
+      transform: translate(-50%, -50%) scale(0.6);
+      opacity: 1;
     }
     .crosshair:before, .crosshair:after {
       content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -88,7 +93,7 @@
 <body>
   <div id="app"></div>
   <div class="crosshair"></div>
-    <div class="hint" id="hint">Click to lock the mouse (<b>Esc</b> to release). <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
+    <div class="hint" id="hint">Click to lock the mouse (<b>Esc</b> to release). <b>WASD</b> to move, <b>Mouse</b> to look, <b>Right Click</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
   <div class="panel">Balls: <input type="range" id="ballSlider" min="100" max="10000" value="2000" /> <span id="ballCountLabel">2000</span></div>
 
