@@ -185,9 +185,13 @@ function shootBullet(){
   const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
   const muzzleWorld = player.localToWorld(muzzle.clone());
 
-  // Forward direction from camera (aim)
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
+  // Determine a target straight ahead from the camera (crosshair)
+  const aimDir = new THREE.Vector3();
+  camera.getWorldDirection(aimDir);
+  const target = camera.position.clone().add(aimDir.clone().multiplyScalar(100));
+
+  // Aim from the muzzle toward that target so bullets pass through the crosshair
+  const dir = target.sub(muzzleWorld).normalize();
 
   const mesh = new THREE.Mesh(bulletGeo, bulletMat);
   mesh.position.copy(muzzleWorld);
