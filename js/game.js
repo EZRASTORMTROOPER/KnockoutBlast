@@ -142,6 +142,13 @@ const rabbit = new Rabbit(scene, player, () => {
   playerHealth *= 0.5;
   updateHealthUI();
 });
+const rabbitHealthEl = document.createElement('div');
+rabbitHealthEl.className = 'enemy-health-ui';
+rabbitHealthEl.textContent = `Rabbit HP: ${rabbit.health}`;
+document.body.appendChild(rabbitHealthEl);
+function updateRabbitHealthUI() {
+  rabbitHealthEl.textContent = `Rabbit HP: ${Math.round(rabbit.health)}`;
+}
 const dayNight = new DayNightCycle(scene, sun, hemi);
 
 // Camera offset relative to player in local space (over‑the‑shoulder)
@@ -151,6 +158,10 @@ const camOffset = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
 const bullets = [];
 const bulletGeo = new THREE.SphereGeometry(0.1, 12, 8);
 const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
+
+const RABBIT_RADIUS = 2.5;
+const BULLET_DAMAGE = 10;
+const BALL_DAMAGE = 20;
 
 // Dispensers and balls
 const BALL_RADIUS = 0.4;
@@ -273,6 +284,15 @@ const { yaw, pitch, keys } = controls;
       b.mesh.position.y = BALL_RADIUS;
       b.vel.y *= -0.6;
     }
+    if (!rabbit.dead && rabbit.visible) {
+      const dist = b.mesh.position.distanceTo(rabbit.mesh.position);
+      if (dist < BALL_RADIUS + RABBIT_RADIUS) {
+        rabbit.takeDamage(BALL_DAMAGE);
+        updateRabbitHealthUI();
+        scene.remove(b.mesh); balls.splice(i,1);
+        continue;
+      }
+    }
     if (b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); balls.splice(i,1);
     }
@@ -286,6 +306,14 @@ const { yaw, pitch, keys } = controls;
     b.mesh.scale.setScalar(Math.max(0, 1 - life));
     if (life > 1 || b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); bullets.splice(i,1); continue;
+    }
+    if (!rabbit.dead && rabbit.visible) {
+      if (b.mesh.position.distanceTo(rabbit.mesh.position) < RABBIT_RADIUS) {
+        rabbit.takeDamage(BULLET_DAMAGE);
+        updateRabbitHealthUI();
+        scene.remove(b.mesh); bullets.splice(i,1);
+        continue;
+      }
     }
     for (let j = balls.length - 1; j >= 0; j--) {
       const ball = balls[j];
