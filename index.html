@@ -52,8 +52,14 @@
       display: flex; align-items: center; margin: 8px 0;
     }
     .setting label { flex: 1; margin-right: 10px; }
-    .setting input[type=range] { flex: 2; }
-    .setting span { margin-left: 8px; width: 40px; text-align: right; }
+    .setting input[type=range] {
+      flex: 2; margin-right: 8px; accent-color: #4ade80;
+    }
+    .setting .value-input {
+      width: 60px; padding: 2px 4px; border-radius: 6px;
+      border: 1px solid #555; background: rgba(0,0,0,0.4); color: #e9eef5;
+      text-align: right;
+    }
 
     .cycle-ui {
       position: fixed; top: 16px; right: 16px;
@@ -102,12 +108,13 @@
 
   <div id="settings" class="settings hidden">
     <h2>Settings</h2>
-    <div class="setting"><label for="volumeSlider">Volume</label><input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" /> <span id="volumeLabel">0.5</span></div>
-    <div class="setting"><label for="faceSlider">Face Offset</label><input type="range" id="faceSlider" min="0" max="1" step="0.01" value="0.05" /> <span id="faceLabel">0.05</span></div>
-    <div class="setting"><label for="rabbitHealthSlider">Rabbit Max Health</label><input type="range" id="rabbitHealthSlider" min="100" max="1000" value="500" /> <span id="rabbitHealthLabel">500</span></div>
-    <div class="setting"><label for="bulletDamageSlider">Bullet Damage</label><input type="range" id="bulletDamageSlider" min="1" max="200" value="50" /> <span id="bulletDamageLabel">50</span></div>
-    <div class="setting"><label for="ballDamageSlider">Ball Damage</label><input type="range" id="ballDamageSlider" min="1" max="200" value="10" /> <span id="ballDamageLabel">10</span></div>
-    <div class="setting"><label for="ballSlider">Max Balls</label><input type="range" id="ballSlider" min="100" max="10000" value="2000" /> <span id="ballCountLabel">2000</span></div>
+    <div class="setting"><label for="volumeSlider">Volume</label><input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" /> <input type="number" id="volumeInput" class="value-input" min="0" max="1" step="0.01" value="0.50" /></div>
+    <div class="setting"><label for="faceSlider">Face Offset</label><input type="range" id="faceSlider" min="0" max="1" step="0.01" value="1" /> <input type="number" id="faceInput" class="value-input" min="0" max="1" step="0.01" value="1.00" /></div>
+    <div class="setting"><label for="rabbitHealthSlider">Rabbit Max Health</label><input type="range" id="rabbitHealthSlider" min="100" max="1000" value="146" /> <input type="number" id="rabbitHealthInput" class="value-input" min="100" max="1000" value="146" /></div>
+    <div class="setting"><label for="bulletDamageSlider">Bullet Damage</label><input type="range" id="bulletDamageSlider" min="1" max="200" value="200" /> <input type="number" id="bulletDamageInput" class="value-input" min="1" max="200" value="200" /></div>
+    <div class="setting"><label for="ballDamageSlider">Ball Damage</label><input type="range" id="ballDamageSlider" min="1" max="200" value="10" /> <input type="number" id="ballDamageInput" class="value-input" min="1" max="200" value="10" /></div>
+    <div class="setting"><label for="dispenserRateSlider">Dispenser Fire Rate</label><input type="range" id="dispenserRateSlider" min="0.1" max="10" step="0.1" value="1" /> <input type="number" id="dispenserRateInput" class="value-input" min="0.1" max="10" step="0.1" value="1" /></div>
+    <div class="setting"><label for="ballSlider">Max Balls</label><input type="range" id="ballSlider" min="100" max="10000" value="2020" /> <input type="number" id="ballCountInput" class="value-input" min="100" max="10000" value="2020" /></div>
     <div style="text-align:center;margin-top:12px;"><button id="resumeButton">Resume</button></div>
   </div>
 
