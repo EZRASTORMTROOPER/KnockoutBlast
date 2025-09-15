@@ -25,41 +25,76 @@ function makeRabbit() {
   const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.2, 2.2, 0.55);
   const eyeR = eyeL.clone(); eyeR.position.x = 0.2;
 
-  const blood = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.4, 0.6),
-    new THREE.MeshBasicMaterial({ color: 0x8b0000 })
-  );
-  blood.rotation.x = -Math.PI/2; blood.position.set(0, 0, -0.8);
-
-  g.add(body, head, earL, earR, eyeL, eyeR, blood);
+  g.add(body, head, earL, earR, eyeL, eyeR);
   g.scale.set(2.2, 2.2, 2.2);
   return g;
 }
 
+// Simple rectangular house
+function createHouse(color = 0x8b4513) {
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 4), new THREE.MeshLambertMaterial({ color }));
+  base.position.y = 1; base.receiveShadow = true; base.castShadow = true;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(3.2, 2, 4), new THREE.MeshLambertMaterial({ color: 0xaa0000 }));
+  roof.position.y = 2 + 1; roof.castShadow = true;
+  g.add(base, roof);
+  return g;
+}
+
+// Sheep house (white base)
+function createSheepHouse() {
+  return createHouse(0xffffff);
+}
+
+// Cave for troll rabbit
+function createCave() {
+  const geo = new THREE.CylinderGeometry(2, 2, 2, 16, 1, true);
+  geo.rotateX(Math.PI / 2);
+  const mat = new THREE.MeshLambertMaterial({ color: 0x554433, side: THREE.DoubleSide });
+  const m = new THREE.Mesh(geo, mat);
+  m.receiveShadow = true;
+  return m;
+}
+
 export class Rabbit {
-  constructor(scene, player, onAttack) {
+  constructor(scene, player, type, callbacks = {}) {
     this.scene = scene;
     this.player = player;
-    this.onAttack = onAttack;
+    this.type = type; // 1,2,3
+    this.onTrap = callbacks.onTrap;
+    this.onAttack = callbacks.onAttack;
     this.mesh = makeRabbit();
     this.visible = false;
-    this.isDragging = false;
-    this.runAway = false;
 
-    this.home = new THREE.Vector3(30, 0, -30);
-    this.cave = this.createCave();
-    scene.add(this.cave);
+    this.maxHealth = 500;
+    this.health = this.maxHealth;
+    this.immune = type === 2; // survives one hit
+    this.isDragging = false; // for type 3
+    this.runAway = false; // for type 3
+
+    // set homes
+    if (type === 1) this.home = new THREE.Vector3(30, 0, 30);
+    else if (type === 2) this.home = new THREE.Vector3(-30, 0, 30);
+    else this.home = new THREE.Vector3(30, 0, -30);
+
+    if (type === 1) this.house = createHouse();
+    else if (type === 2) this.house = createSheepHouse();
+    else this.house = createCave();
+    this.house.position.copy(this.home);
+    scene.add(this.house);
+
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
-  }
 
-  createCave() {
-    const geo = new THREE.CylinderGeometry(2, 2, 2, 16, 1, true);
-    geo.rotateX(Math.PI/2);
-    const mat = new THREE.MeshLambertMaterial({ color: 0x554433, side: THREE.DoubleSide });
-    const m = new THREE.Mesh(geo, mat);
-    m.position.copy(this.home);
-    m.receiveShadow = true;
-    return m;
+    // health bar UI
+    this.healthBar = document.createElement('div');
+    this.healthBar.className = 'rabbit-health';
+    this.healthFill = document.createElement('div');
+    this.healthFill.className = 'fill';
+    this.healthLabel = document.createElement('div');
+    this.healthLabel.className = 'label';
+    this.healthBar.appendChild(this.healthFill);
+    this.healthBar.appendChild(this.healthLabel);
+    document.body.appendChild(this.healthBar);
   }
 
   startNight() {
@@ -79,43 +114,89 @@ export class Rabbit {
     }
   }
 
-  update(dt) {
-    if (!this.visible) return;
-    if (this.runAway) {
-      const dir = this.home.clone().sub(this.mesh.position).setY(0);
-      const dist = dir.length();
-      if (dist > 0.1) {
-        dir.normalize();
-        this.mesh.position.addScaledVector(dir, 5 * dt);
-      } else {
-        this.endNight();
-      }
-      return;
+  damage(amount) {
+    if (this.health <= 0) return;
+    this.health -= amount;
+    if (this.health <= 0) {
+      this.health = 0;
+      this.endNight();
+      this.healthBar.style.display = 'none';
     }
+  }
 
-    if (this.isDragging) {
-      const dir = this.home.clone().sub(this.player.position).setY(0).normalize();
-      this.player.position.addScaledVector(dir, 2 * dt);
-      this.mesh.position.copy(this.player.position);
-      return;
-    }
-
-    const dir = this.player.position.clone().sub(this.mesh.position);
-    dir.y = 0;
-    const dist = dir.length();
-    if (dist > 0.1) {
-      dir.normalize();
-      this.mesh.position.addScaledVector(dir, 2 * dt);
-    }
-    if (dist < 1) {
-      this.isDragging = true;
-      if (this.onAttack) this.onAttack();
-    }
+  hitByBall(amount = 10) {
+    if (this.immune) { this.immune = false; return; }
+    this.damage(amount);
   }
 
   kick() {
-    if (!this.isDragging) return;
-    this.isDragging = false;
-    this.runAway = true;
+    if (this.type === 3 && this.isDragging) {
+      this.isDragging = false;
+      this.runAway = true;
+    }
+  }
+
+  update(dt, isNight, camera) {
+    if (isNight) this.startNight(); else this.endNight();
+    if (!this.visible) {
+      this.updateHealthBar(camera);
+      return;
+    }
+
+    if (this.type === 3) {
+      // Troll rabbit behaviour
+      if (this.runAway) {
+        const dir = this.home.clone().sub(this.mesh.position).setY(0);
+        const dist = dir.length();
+        if (dist > 0.1) {
+          dir.normalize();
+          this.mesh.position.addScaledVector(dir, 5 * dt);
+        } else {
+          this.endNight();
+        }
+      } else if (this.isDragging) {
+        const dir = this.home.clone().sub(this.player.position).setY(0).normalize();
+        this.player.position.addScaledVector(dir, 2 * dt);
+        this.mesh.position.copy(this.player.position);
+      } else {
+        const dir = this.player.position.clone().sub(this.mesh.position);
+        dir.y = 0;
+        const dist = dir.length();
+        if (dist > 0.1) {
+          dir.normalize();
+          this.mesh.position.addScaledVector(dir, 2 * dt);
+        }
+        if (dist < 1) {
+          this.isDragging = true;
+          if (this.onAttack) this.onAttack();
+        }
+      }
+    } else if (this.type === 1) {
+      // screaming trapper
+      const dist = this.player.position.distanceTo(this.mesh.position);
+      if (dist < 3 && this.onTrap && !this.trapped) {
+        this.trapped = true;
+        this.onTrap();
+      }
+      if (dist >= 3) this.trapped = false;
+    }
+
+    this.updateHealthBar(camera);
+  }
+
+  updateHealthBar(camera) {
+    const disp = this.visible && this.health > 0;
+    this.healthBar.style.display = disp ? 'block' : 'none';
+    if (!disp) return;
+    const pos = this.mesh.position.clone();
+    pos.y += 3;
+    pos.project(camera);
+    const x = (pos.x * 0.5 + 0.5) * innerWidth;
+    const y = (-pos.y * 0.5 + 0.5) * innerHeight;
+    this.healthBar.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+    const pct = this.health / this.maxHealth;
+    this.healthFill.style.width = `${pct * 100}%`;
+    this.healthLabel.textContent = Math.round(this.health);
   }
 }
+
