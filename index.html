@@ -45,6 +45,28 @@
       user-select: none;
     }
     .panel input[type=range] { width: 160px; }
+
+    .timer {
+      position: fixed; top: 16px; right: 16px; width: 64px; height: 64px;
+    }
+    .timer svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .timer circle {
+      fill: none; stroke: #fff; stroke-width: 6; opacity: 0.5;
+      stroke-dasharray: 283; stroke-dashoffset: 283;
+    }
+    .timer .icon {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+    }
+
+    .hud {
+      position: fixed; left: 16px; bottom: 16px;
+      padding: 8px 12px; border-radius: 10px;
+      background: rgba(20,22,24,0.65); color: #e9eef5;
+      font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
+      user-select: none; pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -53,6 +75,13 @@
     <div class="hint" id="hint">Click to lock the mouse (<b>Esc</b> to release). <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
   <div class="panel">Balls: <input type="range" id="ballSlider" min="100" max="10000" value="2000" /> <span id="ballCountLabel">2000</span></div>
+  <div id="cycle" class="timer">
+    <svg viewBox="0 0 100 100">
+      <circle id="cycleProgress" cx="50" cy="50" r="45"></circle>
+    </svg>
+    <div class="icon" id="cycleIcon">☀️</div>
+  </div>
+  <div id="health" class="hud">Health: <span id="healthVal">100</span></div>
 
   <script type="module" src="js/main.js"></script>
 </body>
