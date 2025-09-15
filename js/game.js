@@ -137,11 +137,28 @@ function updateHealthUI() {
   healthEl.textContent = `Health: ${Math.round(playerHealth)}`;
 }
 
-// Rabbit enemy and day/night cycle
-const rabbit = new Rabbit(scene, player, () => {
-  playerHealth *= 0.5;
-  updateHealthUI();
-});
+let trappedTimer = 0;
+
+// Rabbits and day/night cycle
+const rabbits = [
+  new Rabbit(scene, camera, player, {
+    type:1,
+    home:new THREE.Vector3(30,0,-30),
+    onTrap:()=>{ trappedTimer = 2; }
+  }),
+  new Rabbit(scene, camera, player, {
+    type:2,
+    home:new THREE.Vector3(-30,0,-30),
+    shield:true,
+    onAttack:()=>{ playerHealth -= 10; updateHealthUI(); }
+  }),
+  new Rabbit(scene, camera, player, {
+    type:3,
+    home:new THREE.Vector3(30,0,30),
+    sneak:true,
+    onAttack:()=>{ playerHealth = 0; updateHealthUI(); }
+  })
+];
 const dayNight = new DayNightCycle(scene, sun, hemi);
 
 // Camera offset relative to player in local space (over‑the‑shoulder)
@@ -191,8 +208,9 @@ function shootBullet(){
 }
 function handleClick(){
   const onGround = player.position.y <= 0.001;
-  if (rabbit.isDragging && onGround) {
-    rabbit.kick();
+  const dragging = rabbits.find(r=>r.isDragging);
+  if (dragging && onGround) {
+    dragging.kick();
   } else {
     shootBullet();
   }
@@ -207,12 +225,7 @@ const GRAV = 22;
 
 function update(dt){
   dayNight.update(dt);
-  if (dayNight.isNight) {
-    rabbit.startNight();
-  } else {
-    rabbit.endNight();
-  }
-const { yaw, pitch, keys } = controls;
+  const { yaw, pitch, keys } = controls;
   const now = performance.now();
   // Move on XZ using yaw (aim direction)
   const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
@@ -225,12 +238,14 @@ const { yaw, pitch, keys } = controls;
   if (keys.has('KeyA')) move.add(right.clone().multiplyScalar(-1));
   if (move.lengthSq()>0) move.normalize().multiplyScalar(speed*dt);
 
-  player.position.add(move);
+  if(trappedTimer <= 0){
+    player.position.add(move);
+  }
 
   // Jump
   const onGround = player.position.y <= 0.0 + 0.001;
   if (onGround) { player.position.y = 0; velY = 0; }
-  if (onGround && keys.has('Space')) velY = 7.5;
+  if (onGround && keys.has('Space') && trappedTimer<=0) velY = 7.5;
   velY -= GRAV * dt;
   player.position.y += velY * dt;
   if (player.position.y < 0) { player.position.y = 0; velY = 0; }
@@ -240,6 +255,10 @@ const { yaw, pitch, keys } = controls;
 
   // Aim the right arm toward where camera looks (rough)
   armR.rotation.x = pitch * 0.75;
+
+  if(trappedTimer>0){
+    trappedTimer -= dt;
+  }
 
   // Update camera to orbit around player
     const camRot = new THREE.Euler(pitch, yaw, 0, 'YXZ');
@@ -278,6 +297,18 @@ const { yaw, pitch, keys } = controls;
     }
   }
 
+  // Balls hitting rabbits
+  for(let i = balls.length - 1; i >= 0; i--){
+    const b = balls[i];
+    for(const r of rabbits){
+      if(!r.visible) continue;
+      if(b.mesh.position.distanceTo(r.mesh.position) < BALL_RADIUS + 1){
+        r.hit(10);
+        scene.remove(b.mesh); balls.splice(i,1); break;
+      }
+    }
+  }
+
   // Bullets update and collision with balls
   for (let i=bullets.length-1;i>=0;i--){
     const b = bullets[i];
@@ -301,7 +332,14 @@ const { yaw, pitch, keys } = controls;
     }
   }
 
-  rabbit.update(dt);
+  for(const r of rabbits){
+    if(dayNight.isNight || r.sneak){
+      r.startNight();
+    }else{
+      r.endNight();
+    }
+    r.update(dt);
+  }
 }
 
 // --- Animate ---
