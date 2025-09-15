@@ -26,7 +26,9 @@ scene.background = new THREE.Color(0x7fb0ff);
 scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
 
 // --- Camera (third‑person follow) ---
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
+const FOV_NORMAL = 70;
+const FOV_AIM = 45;
+const camera = new THREE.PerspectiveCamera(FOV_NORMAL, innerWidth/innerHeight, 0.1, 500);
 
 // --- Lights ---
 const hemi = new THREE.HemisphereLight(0xffffff, 0x335533, 0.6);
@@ -152,6 +154,8 @@ controls.trappedUntil = 0;
 
 // Camera offset relative to player in local space (over‑the‑shoulder)
 const camOffset = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
+const aimCamOffset = new THREE.Vector3(0.3, 1.6, 1.2); // closer when aiming
+const crosshair = document.querySelector('.crosshair');
 
 // --- Bullets ---
 const bullets = [];
@@ -266,11 +270,16 @@ function update(dt){
 
   // Update camera to orbit around player
     const camRot = new THREE.Euler(pitch, yaw, 0, 'YXZ');
-    const offsetWorld = camOffset.clone().applyEuler(camRot);
+    const offset = controls.aiming ? aimCamOffset : camOffset;
+    const offsetWorld = offset.clone().applyEuler(camRot);
     const camPos = player.position.clone().add(offsetWorld);
     camera.position.lerp(camPos, 0.85);
     const camQuat = new THREE.Quaternion().setFromEuler(camRot);
     camera.quaternion.slerp(camQuat, 0.85);
+    const targetFov = controls.aiming ? FOV_AIM : FOV_NORMAL;
+    camera.fov += (targetFov - camera.fov) * 0.1;
+    camera.updateProjectionMatrix();
+    crosshair.classList.toggle('aiming', controls.aiming);
 
   // Spawn balls from dispensers
   for (const d of dispensers) {
