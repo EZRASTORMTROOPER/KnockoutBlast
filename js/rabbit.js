@@ -66,7 +66,7 @@ export class Rabbit {
     this.mesh = makeRabbit();
     this.visible = false;
 
-    this.maxHealth = 500;
+    this.maxHealth = 500; // about five nights of damage
     this.health = this.maxHealth;
     this.immune = type === 2; // survives one hit
     this.isDragging = false; // for type 3
@@ -83,9 +83,30 @@ export class Rabbit {
     this.house.position.copy(this.home);
     scene.add(this.house);
 
+    // house health
+    this.houseMaxHealth = 1;
+    this.houseHealth = this.houseMaxHealth;
+    this.houseRepairRate = 0.25; // per second
+    this.houseDestroyed = false;
+
+    // house health bar
+    this.houseBarWidth = 80;
+    this.houseBarHeight = 6;
+    this.houseBar = document.createElement('div');
+    this.houseBar.className = 'house-health';
+    this.houseFill = document.createElement('div');
+    this.houseFill.className = 'fill';
+    this.houseLabel = document.createElement('div');
+    this.houseLabel.className = 'label';
+    this.houseBar.appendChild(this.houseFill);
+    this.houseBar.appendChild(this.houseLabel);
+    document.body.appendChild(this.houseBar);
+
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
 
-    // health bar UI
+    // rabbit health bar UI
+    this.healthBarWidth = 120;
+    this.healthBarHeight = 8;
     this.healthBar = document.createElement('div');
     this.healthBar.className = 'rabbit-health';
     this.healthFill = document.createElement('div');
@@ -124,6 +145,13 @@ export class Rabbit {
     }
   }
 
+  damageHouse() {
+    if (this.houseDestroyed) return;
+    this.houseHealth = 0;
+    this.scene.remove(this.house);
+    this.houseDestroyed = true;
+  }
+
   hitByBall(amount = 10) {
     if (this.immune) { this.immune = false; return; }
     this.damage(amount);
@@ -137,9 +165,19 @@ export class Rabbit {
   }
 
   update(dt, isNight, camera) {
+    // repair house over time
+    if (this.houseHealth < this.houseMaxHealth) {
+      this.houseHealth = Math.min(this.houseMaxHealth, this.houseHealth + this.houseRepairRate * dt);
+      if (this.houseDestroyed && this.houseHealth >= this.houseMaxHealth) {
+        this.scene.add(this.house);
+        this.houseDestroyed = false;
+      }
+    }
+
     if (isNight) this.startNight(); else this.endNight();
     if (!this.visible) {
       this.updateHealthBar(camera);
+      this.updateHouseBar(camera);
       return;
     }
 
@@ -182,6 +220,7 @@ export class Rabbit {
     }
 
     this.updateHealthBar(camera);
+    this.updateHouseBar(camera);
   }
 
   updateHealthBar(camera) {
@@ -191,12 +230,26 @@ export class Rabbit {
     const pos = this.mesh.position.clone();
     pos.y += 3;
     pos.project(camera);
-    const x = (pos.x * 0.5 + 0.5) * innerWidth;
-    const y = (-pos.y * 0.5 + 0.5) * innerHeight;
-    this.healthBar.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+    const x = (pos.x * 0.5 + 0.5) * innerWidth - this.healthBarWidth / 2;
+    const y = (-pos.y * 0.5 + 0.5) * innerHeight - this.healthBarHeight / 2;
+    this.healthBar.style.left = `${x}px`;
+    this.healthBar.style.top = `${y}px`;
     const pct = this.health / this.maxHealth;
     this.healthFill.style.width = `${pct * 100}%`;
     this.healthLabel.textContent = Math.round(this.health);
+  }
+
+  updateHouseBar(camera) {
+    const pos = this.home.clone();
+    pos.y += 3;
+    pos.project(camera);
+    const x = (pos.x * 0.5 + 0.5) * innerWidth - this.houseBarWidth / 2;
+    const y = (-pos.y * 0.5 + 0.5) * innerHeight - this.houseBarHeight / 2;
+    this.houseBar.style.left = `${x}px`;
+    this.houseBar.style.top = `${y}px`;
+    const pct = this.houseHealth / this.houseMaxHealth;
+    this.houseFill.style.width = `${pct * 100}%`;
+    this.houseLabel.textContent = Math.round(pct * 100);
   }
 }
 
