@@ -2,7 +2,8 @@ export const controls = {
   yaw: 0,
   pitch: 0,
   keys: new Set(),
-  pointerLocked: false
+  pointerLocked: false,
+  aiming: false
 };
 
 export function initControls(domElement, shoot) {
@@ -18,18 +19,31 @@ export function initControls(domElement, shoot) {
     controls.keys.delete(e.code);
   });
 
+  domElement.addEventListener('contextmenu', e => e.preventDefault());
+
   addEventListener('mousedown', e => {
     if (!controls.pointerLocked) {
       domElement.requestPointerLock();
       e.preventDefault();
     } else if (e.button === 0) {
       shoot();
+    } else if (e.button === 2) {
+      controls.aiming = true;
+    }
+  });
+
+  addEventListener('mouseup', e => {
+    if (e.button === 2) {
+      controls.aiming = false;
     }
   });
 
   document.addEventListener('pointerlockchange', () => {
     controls.pointerLocked = document.pointerLockElement === domElement;
     hint.classList.toggle('hidden', controls.pointerLocked);
+    if (!controls.pointerLocked) {
+      controls.aiming = false;
+    }
   });
 
   addEventListener('mousemove', e => {

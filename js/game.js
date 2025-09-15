@@ -150,8 +150,13 @@ const rabbits = [
 const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;
 
-// Camera offset relative to player in local space (over‑the‑shoulder)
-const camOffset = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
+// Camera offsets for hip fire vs. aiming
+const camOffsetHip = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
+const camOffsetAim = new THREE.Vector3(0.4, 1.6, 2.0); // closer when aiming
+const camOffset = camOffsetHip.clone();
+const defaultFov = 70;
+const aimFov = 55;
+camera.fov = defaultFov;
 
 // --- Bullets ---
 const bullets = [];
@@ -250,6 +255,11 @@ function update(dt){
   armR.rotation.x = pitch * 0.75;
 
   // Update camera to orbit around player
+    const targetOffset = controls.aiming ? camOffsetAim : camOffsetHip;
+    camOffset.lerp(targetOffset, 0.1);
+    const targetFov = controls.aiming ? aimFov : defaultFov;
+    camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 0.1);
+    camera.updateProjectionMatrix();
     const camRot = new THREE.Euler(pitch, yaw, 0, 'YXZ');
     const offsetWorld = camOffset.clone().applyEuler(camRot);
     const camPos = player.position.clone().add(offsetWorld);
@@ -337,7 +347,10 @@ function animate(){
 
 // Spawn position and initial camera placement
   player.position.set(0,0,8);
+  camOffset.copy(camOffsetHip);
   camera.position.copy(player.position).add(camOffset);
+  camera.fov = defaultFov;
+  camera.updateProjectionMatrix();
   camera.quaternion.setFromEuler(new THREE.Euler(0,0,0));
 
 // Resize
