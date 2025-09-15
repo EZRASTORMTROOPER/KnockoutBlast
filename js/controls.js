@@ -2,7 +2,8 @@ export const controls = {
   yaw: 0,
   pitch: 0,
   keys: new Set(),
-  pointerLocked: false
+  pointerLocked: false,
+  allowPointerLock: true
 };
 
 export function initControls(domElement, shoot, onPointerLockChange) {
@@ -18,12 +19,12 @@ export function initControls(domElement, shoot, onPointerLockChange) {
     controls.keys.delete(e.code);
   });
 
-  addEventListener('mousedown', e => {
-    if (!controls.pointerLocked) {
+  domElement.addEventListener('mousedown', e => {
+    if (controls.pointerLocked) {
+      if (e.button === 0) shoot();
+    } else if (controls.allowPointerLock) {
       domElement.requestPointerLock();
       e.preventDefault();
-    } else if (e.button === 0) {
-      shoot();
     }
   });
 
