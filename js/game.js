@@ -28,6 +28,18 @@ scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
 // --- Camera (third‑person follow) ---
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
 
+// Audio setup
+const listener = new THREE.AudioListener();
+camera.add(listener);
+const audioLoader = new THREE.AudioLoader();
+const horrorDrone = new THREE.Audio(listener);
+audioLoader.load('audio/horror-drone.wav', buffer => {
+  horrorDrone.setBuffer(buffer);
+  horrorDrone.setLoop(true);
+  horrorDrone.setVolume(0.5);
+});
+let dronePlaying = false;
+
 // --- Lights ---
 const hemi = new THREE.HemisphereLight(0xffffff, 0x335533, 0.6);
 scene.add(hemi);
@@ -141,13 +153,14 @@ function updateHealthUI() {
 const rabbits = [
   new Rabbit(scene, player, 1, {
     onTrap: () => { controls.trappedUntil = performance.now() + 2000; }
-  }),
-  new Rabbit(scene, player, 2),
+  }, listener),
+  new Rabbit(scene, player, 2, {}, listener),
   new Rabbit(scene, player, 3, {
     onAttack: () => { playerHealth *= 0.5; updateHealthUI(); }
-  })
+  }, listener)
 ];
 const dayNight = new DayNightCycle(scene, sun, hemi);
+let wasNight = dayNight.isNight;
 controls.trappedUntil = 0;
 
 // Camera offset relative to player in local space (over‑the‑shoulder)
@@ -216,6 +229,15 @@ function update(dt){
   dayNight.update(dt);
   const { yaw, pitch, keys } = controls;
   const now = performance.now();
+  // Handle night ambience
+  if (dayNight.isNight && !wasNight) {
+    if (horrorDrone.buffer && !horrorDrone.isPlaying) horrorDrone.play();
+    dronePlaying = true;
+  } else if (!dayNight.isNight && wasNight) {
+    if (dronePlaying) horrorDrone.stop();
+    dronePlaying = false;
+  }
+  wasNight = dayNight.isNight;
   // Move on XZ using yaw (aim direction)
   const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
   const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
