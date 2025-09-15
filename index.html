@@ -39,21 +39,41 @@
     .settings {
       position: fixed;
       top: 50%; left: 50%; transform: translate(-50%, -50%);
-      padding: 20px 24px; border-radius: 14px;
-      background: rgba(20,22,24,0.9); color: #e9eef5;
+      padding: 24px 28px; border-radius: 16px;
+      background: linear-gradient(135deg, rgba(34,36,40,0.95), rgba(24,26,28,0.95));
+      color: #e9eef5;
       font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
-      min-width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(8px);
+      min-width: 320px;
     }
     .settings h2 {
-      margin: 0 0 10px 0; text-align: center;
+      margin: 0 0 12px 0; text-align: center; font-size: 20px;
     }
     .setting {
-      display: flex; align-items: center; margin: 8px 0;
+      display: flex; align-items: center; margin: 10px 0;
     }
     .setting label { flex: 1; margin-right: 10px; }
-    .setting input[type=range] { flex: 2; }
-    .setting span { margin-left: 8px; width: 40px; text-align: right; }
+    .setting input[type=range] {
+      flex: 2;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: #444;
+    }
+    .setting input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #3fa9f5;
+      border: none;
+      box-shadow: 0 0 2px rgba(0,0,0,0.6);
+    }
+    .setting input[type=range]::-moz-range-thumb {
+      width: 14px; height: 14px; border-radius: 50%; background: #3fa9f5; border:none; box-shadow: 0 0 2px rgba(0,0,0,0.6);
+    }
+    .setting span { margin-left: 8px; width: 50px; text-align: right; cursor: pointer; }
 
     .cycle-ui {
       position: fixed; top: 16px; right: 16px;
@@ -102,12 +122,13 @@
 
   <div id="settings" class="settings hidden">
     <h2>Settings</h2>
-    <div class="setting"><label for="volumeSlider">Volume</label><input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" /> <span id="volumeLabel">0.5</span></div>
-    <div class="setting"><label for="faceSlider">Face Offset</label><input type="range" id="faceSlider" min="0" max="1" step="0.01" value="0.05" /> <span id="faceLabel">0.05</span></div>
-    <div class="setting"><label for="rabbitHealthSlider">Rabbit Max Health</label><input type="range" id="rabbitHealthSlider" min="100" max="1000" value="500" /> <span id="rabbitHealthLabel">500</span></div>
-    <div class="setting"><label for="bulletDamageSlider">Bullet Damage</label><input type="range" id="bulletDamageSlider" min="1" max="200" value="50" /> <span id="bulletDamageLabel">50</span></div>
+    <div class="setting"><label for="volumeSlider">Volume</label><input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" /> <span id="volumeLabel">0.50</span></div>
+    <div class="setting"><label for="faceSlider">Face Offset</label><input type="range" id="faceSlider" min="0" max="1" step="0.01" value="1" /> <span id="faceLabel">1.00</span></div>
+    <div class="setting"><label for="rabbitHealthSlider">Rabbit Max Health</label><input type="range" id="rabbitHealthSlider" min="100" max="1000" value="146" /> <span id="rabbitHealthLabel">146</span></div>
+    <div class="setting"><label for="bulletDamageSlider">Bullet Damage</label><input type="range" id="bulletDamageSlider" min="1" max="200" value="200" /> <span id="bulletDamageLabel">200</span></div>
     <div class="setting"><label for="ballDamageSlider">Ball Damage</label><input type="range" id="ballDamageSlider" min="1" max="200" value="10" /> <span id="ballDamageLabel">10</span></div>
-    <div class="setting"><label for="ballSlider">Max Balls</label><input type="range" id="ballSlider" min="100" max="10000" value="2000" /> <span id="ballCountLabel">2000</span></div>
+    <div class="setting"><label for="fireRateSlider">Dispenser Fire Rate</label><input type="range" id="fireRateSlider" min="0.1" max="10" step="0.1" value="1" /> <span id="fireRateLabel">1.00</span></div>
+    <div class="setting"><label for="ballSlider">Max Balls</label><input type="range" id="ballSlider" min="100" max="10000" value="2020" /> <span id="ballCountLabel">2020</span></div>
     <div style="text-align:center;margin-top:12px;"><button id="resumeButton">Resume</button></div>
   </div>
 
