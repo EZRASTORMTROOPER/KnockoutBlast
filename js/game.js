@@ -181,19 +181,24 @@ for (const d of dispensers) {
 }
 
 function shootBullet(){
-  // Muzzle position slightly in front/right of player chest, aligned with aim
+  // Muzzle position slightly in front/right of player chest
   const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
   const muzzleWorld = player.localToWorld(muzzle.clone());
 
-  // Forward direction from camera (aim)
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
+  // Determine a far point along the camera's forward vector (crosshair ray)
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  const target = camera.position.clone().add(camDir.clone().multiplyScalar(1000));
+
+  // Aim from muzzle toward the point under the crosshair so bullets travel
+  // directly through the center of the screen
+  const bulletDir = target.sub(muzzleWorld).normalize();
 
   const mesh = new THREE.Mesh(bulletGeo, bulletMat);
   mesh.position.copy(muzzleWorld);
   scene.add(mesh);
 
-  bullets.push({ mesh, vel: dir.multiplyScalar(38), born: performance.now() });
+  bullets.push({ mesh, vel: bulletDir.multiplyScalar(38), born: performance.now() });
 }
 function handleClick(){
   const onGround = player.position.y <= 0.001;
