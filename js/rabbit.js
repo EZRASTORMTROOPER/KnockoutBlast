@@ -66,6 +66,15 @@ export class Rabbit {
     this.mesh = makeRabbit();
     this.visible = false;
 
+    // overlay face texture for night time
+    const faceTex = new THREE.TextureLoader().load(`assets/faces/face${type}.png`);
+    const faceMat = new THREE.MeshBasicMaterial({ map: faceTex, transparent: true, side: THREE.DoubleSide });
+    const faceGeo = new THREE.PlaneGeometry(0.8, 0.8);
+    this.face = new THREE.Mesh(faceGeo, faceMat);
+    this.face.position.set(0, 2.1, 0.81);
+    this.face.visible = false;
+    this.mesh.add(this.face);
+
     this.maxHealth = 500;
     this.health = this.maxHealth;
     this.immune = type === 2; // survives one hit
@@ -102,6 +111,7 @@ export class Rabbit {
       this.scene.add(this.mesh);
       this.visible = true;
     }
+    if (this.face) this.face.visible = true;
   }
 
   endNight() {
@@ -112,6 +122,7 @@ export class Rabbit {
       this.visible = false;
       this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
     }
+    if (this.face) this.face.visible = false;
   }
 
   damage(amount) {
@@ -180,6 +191,11 @@ export class Rabbit {
       }
       if (dist >= 3) this.trapped = false;
     }
+
+    const lookPos = this.player.position.clone();
+    lookPos.y = this.mesh.position.y;
+    this.mesh.lookAt(lookPos);
+    this.mesh.rotateY(Math.PI);
 
     this.updateHealthBar(camera);
   }
