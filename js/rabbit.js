@@ -64,6 +64,18 @@ export class Rabbit {
     this.onTrap = callbacks.onTrap;
     this.onAttack = callbacks.onAttack;
     this.mesh = makeRabbit();
+    // sprite that shows the attack face
+    const texLoader = new THREE.TextureLoader();
+    const faceTex = texLoader.load(`assets/faces/face${type}.png`);
+    this.attackFace = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: faceTex,
+      transparent: true
+    }));
+    this.attackFace.position.set(0, 2.1, 0.8);
+    this.attackFace.scale.set(1, 1, 1);
+    this.attackFace.visible = false;
+    this.mesh.add(this.attackFace);
+    this.faceTimeout = null;
     this.visible = false;
 
     this.maxHealth = 500;
@@ -129,6 +141,14 @@ export class Rabbit {
     this.damage(amount);
   }
 
+  showAttackFace(duration = 1000) {
+    this.attackFace.visible = true;
+    if (this.faceTimeout) clearTimeout(this.faceTimeout);
+    this.faceTimeout = setTimeout(() => {
+      this.attackFace.visible = false;
+    }, duration);
+  }
+
   kick() {
     if (this.type === 3 && this.isDragging) {
       this.isDragging = false;
@@ -168,14 +188,22 @@ export class Rabbit {
         }
         if (dist < 1) {
           this.isDragging = true;
+          this.showAttackFace();
           if (this.onAttack) this.onAttack();
         }
+      }
+    } else if (this.type === 2) {
+      const dist = this.player.position.distanceTo(this.mesh.position);
+      if (dist < 1.5) {
+        this.showAttackFace();
+        if (this.onAttack) this.onAttack();
       }
     } else if (this.type === 1) {
       // screaming trapper
       const dist = this.player.position.distanceTo(this.mesh.position);
       if (dist < 3 && this.onTrap && !this.trapped) {
         this.trapped = true;
+        this.showAttackFace();
         this.onTrap();
       }
       if (dist >= 3) this.trapped = false;
