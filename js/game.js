@@ -289,7 +289,8 @@ const GRAV = 22;
   // Spawn balls from dispensers
   for (const d of dispensers) {
     if (totalDispensed >= gameSettings.maxBalls) break;
-    if (now - d.last >= 1000) {
+    const interval = 1000 / gameSettings.dispenserRate;
+    if (now - d.last >= interval) {
       const mesh = new THREE.Mesh(ballGeo, ballMat);
       mesh.position.copy(d.pos).add(new THREE.Vector3(0, BALL_RADIUS, 0));
       mesh.castShadow = true; mesh.receiveShadow = true;

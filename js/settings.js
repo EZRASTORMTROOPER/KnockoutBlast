@@ -14,55 +14,33 @@ const bulletDamageSlider = document.getElementById('bulletDamageSlider');
 const bulletDamageLabel = document.getElementById('bulletDamageLabel');
 const ballDamageSlider = document.getElementById('ballDamageSlider');
 const ballDamageLabel = document.getElementById('ballDamageLabel');
+const ballRateSlider = document.getElementById('ballRateSlider');
+const ballRateLabel = document.getElementById('ballRateLabel');
 const resumeButton = document.getElementById('resumeButton');
 
 export const gameSettings = {
   maxBalls: parseInt(ballSlider.value),
   bulletDamage: parseInt(bulletDamageSlider.value),
-  ballDamage: parseInt(ballDamageSlider.value)
+  ballDamage: parseInt(ballDamageSlider.value),
+  dispenserRate: parseFloat(ballRateSlider.value)
 };
+function bind(slider, input, parse, onChange) {
+  const handle = v => onChange(parse(v));
+  input.value = slider.value;
+  slider.addEventListener('input', () => { input.value = slider.value; handle(slider.value); });
+  input.addEventListener('input', () => { slider.value = input.value; handle(input.value); });
+  handle(slider.value);
+}
 
 export function initSettings(rabbits, listener, canvas) {
-  ballCountLabel.textContent = ballSlider.value;
-  ballSlider.addEventListener('input', () => {
-    ballCountLabel.textContent = ballSlider.value;
-    gameSettings.maxBalls = parseInt(ballSlider.value);
-  });
+  bind(ballSlider, ballCountLabel, parseInt, v => gameSettings.maxBalls = v);
+  bind(bulletDamageSlider, bulletDamageLabel, parseInt, v => gameSettings.bulletDamage = v);
+  bind(ballDamageSlider, ballDamageLabel, parseInt, v => gameSettings.ballDamage = v);
+  bind(ballRateSlider, ballRateLabel, parseFloat, v => gameSettings.dispenserRate = v);
 
-  bulletDamageLabel.textContent = gameSettings.bulletDamage;
-  bulletDamageSlider.addEventListener('input', () => {
-    gameSettings.bulletDamage = parseInt(bulletDamageSlider.value);
-    bulletDamageLabel.textContent = gameSettings.bulletDamage;
-  });
-
-  ballDamageLabel.textContent = gameSettings.ballDamage;
-  ballDamageSlider.addEventListener('input', () => {
-    gameSettings.ballDamage = parseInt(ballDamageSlider.value);
-    ballDamageLabel.textContent = gameSettings.ballDamage;
-  });
-
-  Rabbit.faceOffset = parseFloat(faceSlider.value);
-  faceLabel.textContent = parseFloat(faceSlider.value).toFixed(2);
-  faceSlider.addEventListener('input', () => {
-    const v = parseFloat(faceSlider.value);
-    faceLabel.textContent = v.toFixed(2);
-    Rabbit.faceOffset = v;
-  });
-
-  rabbitHealthLabel.textContent = rabbitHealthSlider.value;
-  rabbitHealthSlider.addEventListener('input', () => {
-    const v = parseInt(rabbitHealthSlider.value);
-    rabbitHealthLabel.textContent = v;
-    for (const r of rabbits) { r.maxHealth = v; r.health = v; }
-  });
-
-  volumeLabel.textContent = parseFloat(volumeSlider.value).toFixed(2);
-  listener.setMasterVolume(parseFloat(volumeSlider.value));
-  volumeSlider.addEventListener('input', () => {
-    const v = parseFloat(volumeSlider.value);
-    volumeLabel.textContent = v.toFixed(2);
-    listener.setMasterVolume(v);
-  });
+  bind(faceSlider, faceLabel, parseFloat, v => { Rabbit.faceOffset = v; });
+  bind(rabbitHealthSlider, rabbitHealthLabel, parseInt, v => { for (const r of rabbits) { r.maxHealth = v; r.health = v; } });
+  bind(volumeSlider, volumeLabel, parseFloat, v => { listener.setMasterVolume(v); });
 
   resumeButton.addEventListener('click', () => {
     controls.allowPointerLock = true;
