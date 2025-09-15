@@ -64,8 +64,9 @@
     }
     .rabbit-health {
       position: fixed;
-      width: 60px;
-      height: 8px;
+      transform: translate(-50%, -50%);
+      width: 120px;
+      height: 12px;
       background: rgba(80,0,0,0.8);
       border: 1px solid #300;
       pointer-events: none;
@@ -76,6 +77,28 @@
       width: 100%;
     }
     .rabbit-health .label {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    .house-health {
+      position: fixed;
+      transform: translate(-50%, -50%);
+      width: 80px;
+      height: 6px;
+      background: rgba(80,0,0,0.8);
+      border: 1px solid #300;
+      pointer-events: none;
+    }
+    .house-health .fill {
+      background: #3498db;
+      height: 100%;
+      width: 100%;
+    }
+    .house-health .label {
       position: absolute;
       top: -14px;
       left: 50%;

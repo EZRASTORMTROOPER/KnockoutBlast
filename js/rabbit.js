@@ -66,7 +66,7 @@ export class Rabbit {
     this.mesh = makeRabbit();
     this.visible = false;
 
-    this.maxHealth = 500;
+    this.maxHealth = 1000;
     this.health = this.maxHealth;
     this.immune = type === 2; // survives one hit
     this.isDragging = false; // for type 3
@@ -82,6 +82,20 @@ export class Rabbit {
     else this.house = createCave();
     this.house.position.copy(this.home);
     scene.add(this.house);
+
+    this.houseMaxHealth = 100;
+    this.houseHealth = this.houseMaxHealth;
+    this.houseDestroyed = false;
+
+    this.houseBar = document.createElement('div');
+    this.houseBar.className = 'house-health';
+    this.houseFill = document.createElement('div');
+    this.houseFill.className = 'fill';
+    this.houseLabel = document.createElement('div');
+    this.houseLabel.className = 'label';
+    this.houseBar.appendChild(this.houseFill);
+    this.houseBar.appendChild(this.houseLabel);
+    document.body.appendChild(this.houseBar);
 
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
 
@@ -124,9 +138,16 @@ export class Rabbit {
     }
   }
 
-  hitByBall(amount = 10) {
+  hitByBall(amount = 5) {
     if (this.immune) { this.immune = false; return; }
     this.damage(amount);
+  }
+
+  damageHouse() {
+    if (this.houseDestroyed) return;
+    this.houseHealth = 0;
+    this.scene.remove(this.house);
+    this.houseDestroyed = true;
   }
 
   kick() {
@@ -138,6 +159,7 @@ export class Rabbit {
 
   update(dt, isNight, camera) {
     if (isNight) this.startNight(); else this.endNight();
+    this.updateHouse(dt, camera);
     if (!this.visible) {
       this.updateHealthBar(camera);
       return;
@@ -193,10 +215,37 @@ export class Rabbit {
     pos.project(camera);
     const x = (pos.x * 0.5 + 0.5) * innerWidth;
     const y = (-pos.y * 0.5 + 0.5) * innerHeight;
-    this.healthBar.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+    this.healthBar.style.left = `${x}px`;
+    this.healthBar.style.top = `${y}px`;
     const pct = this.health / this.maxHealth;
     this.healthFill.style.width = `${pct * 100}%`;
     this.healthLabel.textContent = Math.round(this.health);
+  }
+
+  updateHouse(dt, camera) {
+    if (this.houseDestroyed) {
+      this.houseHealth = Math.min(this.houseMaxHealth, this.houseHealth + 20 * dt);
+      if (this.houseHealth >= this.houseMaxHealth) {
+        if (this.type === 1) this.house = createHouse();
+        else if (this.type === 2) this.house = createSheepHouse();
+        else this.house = createCave();
+        this.house.position.copy(this.home);
+        this.scene.add(this.house);
+        this.houseDestroyed = false;
+      }
+    }
+    const pos = this.houseDestroyed ? this.home : this.house.position;
+    this.houseBar.style.display = 'block';
+    const p = pos.clone();
+    p.y += 3;
+    p.project(camera);
+    const x = (p.x * 0.5 + 0.5) * innerWidth;
+    const y = (-p.y * 0.5 + 0.5) * innerHeight;
+    this.houseBar.style.left = `${x}px`;
+    this.houseBar.style.top = `${y}px`;
+    const pct = this.houseHealth / this.houseMaxHealth;
+    this.houseFill.style.width = `${pct * 100}%`;
+    this.houseLabel.textContent = Math.round(this.houseHealth);
   }
 }
 

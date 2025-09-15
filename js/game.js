@@ -283,20 +283,32 @@ function update(dt){
     }
     if (b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); balls.splice(i,1);
+      continue;
     }
-    // collision with rabbits
+    const radius = BALL_RADIUS * b.mesh.scale.x;
+    let removed = false;
     for (const r of rabbits) {
-      if (!r.visible) continue;
-      const radius = BALL_RADIUS * b.mesh.scale.x;
-      if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
-        r.hitByBall();
+      if (!r.houseDestroyed && r.house.position.distanceTo(b.mesh.position) < radius + 2.5) {
+        r.damageHouse();
         scene.remove(b.mesh); balls.splice(i,1);
+        removed = true;
         break;
       }
     }
+    if (removed) continue;
+    for (const r of rabbits) {
+      if (!r.visible) continue;
+      if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
+        r.hitByBall();
+        scene.remove(b.mesh); balls.splice(i,1);
+        removed = true;
+        break;
+      }
+    }
+    if (removed) continue;
   }
 
-  // Bullets update and collision with balls
+  // Bullets update and collision
   for (let i=bullets.length-1;i>=0;i--){
     const b = bullets[i];
     b.mesh.position.addScaledVector(b.vel, dt);
@@ -305,6 +317,16 @@ function update(dt){
     if (life > 1 || b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); bullets.splice(i,1); continue;
     }
+    let removed = false;
+    for (const r of rabbits) {
+      if (!r.houseDestroyed && r.house.position.distanceTo(b.mesh.position) < 2.5) {
+        r.damageHouse();
+        scene.remove(b.mesh); bullets.splice(i,1);
+        removed = true;
+        break;
+      }
+    }
+    if (removed) continue;
     for (let j = balls.length - 1; j >= 0; j--) {
       const ball = balls[j];
       const radius = BALL_RADIUS * ball.mesh.scale.x;
@@ -314,6 +336,7 @@ function update(dt){
         if (ball.mesh.scale.x < 0.2) {
           scene.remove(ball.mesh); balls.splice(j,1);
         }
+        removed = true;
         break;
       }
     }
