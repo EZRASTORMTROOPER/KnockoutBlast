@@ -39,21 +39,48 @@
     .settings {
       position: fixed;
       top: 50%; left: 50%; transform: translate(-50%, -50%);
-      padding: 20px 24px; border-radius: 14px;
-      background: rgba(20,22,24,0.9); color: #e9eef5;
+      padding: 24px 28px; border-radius: 16px;
+      background: rgba(20,22,24,0.85);
+      color: #e9eef5;
       font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
-      min-width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      min-width: 320px;
     }
     .settings h2 {
-      margin: 0 0 10px 0; text-align: center;
+      margin: 0 0 16px 0; text-align: center;
     }
     .setting {
-      display: flex; align-items: center; margin: 8px 0;
+      display: flex; align-items: center; margin: 10px 0;
     }
     .setting label { flex: 1; margin-right: 10px; }
-    .setting input[type=range] { flex: 2; }
-    .setting span { margin-left: 8px; width: 40px; text-align: right; }
+    .setting input[type=range] {
+      flex: 2;
+      accent-color: #4ade80;
+    }
+    .setting input[type=number] {
+      margin-left: 8px;
+      width: 60px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      color: #e9eef5;
+      text-align: right;
+    }
+    #resumeButton {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: none;
+      background: #4ade80;
+      color: #111315;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #resumeButton:hover {
+      background: #22c55e;
+    }
 
     .cycle-ui {
       position: fixed; top: 16px; right: 16px;
@@ -102,13 +129,14 @@
 
   <div id="settings" class="settings hidden">
     <h2>Settings</h2>
-    <div class="setting"><label for="volumeSlider">Volume</label><input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" /> <span id="volumeLabel">0.5</span></div>
-    <div class="setting"><label for="faceSlider">Face Offset</label><input type="range" id="faceSlider" min="0" max="1" step="0.01" value="0.05" /> <span id="faceLabel">0.05</span></div>
-    <div class="setting"><label for="rabbitHealthSlider">Rabbit Max Health</label><input type="range" id="rabbitHealthSlider" min="100" max="1000" value="500" /> <span id="rabbitHealthLabel">500</span></div>
-    <div class="setting"><label for="bulletDamageSlider">Bullet Damage</label><input type="range" id="bulletDamageSlider" min="1" max="200" value="50" /> <span id="bulletDamageLabel">50</span></div>
-    <div class="setting"><label for="ballDamageSlider">Ball Damage</label><input type="range" id="ballDamageSlider" min="1" max="200" value="10" /> <span id="ballDamageLabel">10</span></div>
-    <div class="setting"><label for="ballSlider">Max Balls</label><input type="range" id="ballSlider" min="100" max="10000" value="2000" /> <span id="ballCountLabel">2000</span></div>
-    <div style="text-align:center;margin-top:12px;"><button id="resumeButton">Resume</button></div>
+    <div class="setting"><label for="volumeSlider">Volume</label><input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" /> <input type="number" id="volumeLabel" min="0" max="1" step="0.01" value="0.5" /></div>
+    <div class="setting"><label for="faceSlider">Face Offset</label><input type="range" id="faceSlider" min="0" max="1" step="0.01" value="1" /> <input type="number" id="faceLabel" min="0" max="1" step="0.01" value="1" /></div>
+    <div class="setting"><label for="rabbitHealthSlider">Rabbit Max Health</label><input type="range" id="rabbitHealthSlider" min="100" max="1000" value="146" /> <input type="number" id="rabbitHealthLabel" min="100" max="1000" step="1" value="146" /></div>
+    <div class="setting"><label for="bulletDamageSlider">Bullet Damage</label><input type="range" id="bulletDamageSlider" min="1" max="200" value="200" /> <input type="number" id="bulletDamageLabel" min="1" max="200" step="1" value="200" /></div>
+    <div class="setting"><label for="ballDamageSlider">Ball Damage</label><input type="range" id="ballDamageSlider" min="1" max="200" value="10" /> <input type="number" id="ballDamageLabel" min="1" max="200" step="1" value="10" /></div>
+    <div class="setting"><label for="ballRateSlider">Dispenser Fire Rate</label><input type="range" id="ballRateSlider" min="0.1" max="5" step="0.1" value="1" /> <input type="number" id="ballRateLabel" min="0.1" max="5" step="0.1" value="1" /></div>
+    <div class="setting"><label for="ballSlider">Max Balls</label><input type="range" id="ballSlider" min="100" max="10000" value="2020" /> <input type="number" id="ballCountLabel" min="100" max="10000" step="1" value="2020" /></div>
+    <div style="text-align:center;margin-top:16px;"><button id="resumeButton">Resume</button></div>
   </div>
 
   <script type="module" src="js/main.js"></script>
