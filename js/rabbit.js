@@ -56,8 +56,8 @@ function createCave() {
   return m;
 }
 
-export class Rabbit {
-  constructor(scene, player, type, callbacks = {}) {
+  export class Rabbit {
+  constructor(scene, player, type, callbacks = {}, listener, audioLoader) {
     this.scene = scene;
     this.player = player;
     this.type = type; // 1,2,3
@@ -108,6 +108,17 @@ export class Rabbit {
     this.healthBar.appendChild(this.healthFill);
     this.healthBar.appendChild(this.healthLabel);
     document.body.appendChild(this.healthBar);
+
+    // proximity scream audio
+    this.screamSound = new THREE.PositionalAudio(listener);
+    audioLoader.load('audio/scream.wav', (buffer) => {
+      this.screamSound.setBuffer(buffer);
+      this.screamSound.setRefDistance(5);
+      this.screamSound.setRolloffFactor(2);
+      this.screamSound.setLoop(false);
+    });
+    this.mesh.add(this.screamSound);
+    this.lastScream = 0;
   }
 
   startNight() {
@@ -125,6 +136,7 @@ export class Rabbit {
       this.visible = false;
       this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
     }
+    if (this.screamSound.isPlaying) this.screamSound.stop();
   }
 
   damage(amount) {
@@ -167,11 +179,18 @@ export class Rabbit {
         } else {
           this.endNight();
         }
-      } else if (this.isDragging) {
-        const dir = this.home.clone().sub(this.player.position).setY(0).normalize();
-        this.player.position.addScaledVector(dir, 2 * dt);
-        this.mesh.position.copy(this.player.position);
-      } else {
+        } else if (this.isDragging) {
+          const dir = this.home.clone().sub(this.player.position).setY(0).normalize();
+          this.player.position.addScaledVector(dir, 2 * dt);
+          this.mesh.position.copy(this.player.position);
+          if (isNight) {
+            const now = performance.now();
+            if (!this.screamSound.isPlaying && this.screamSound.buffer && now - this.lastScream > 3000) {
+              this.screamSound.play();
+              this.lastScream = now;
+            }
+          }
+        } else {
         const dir = this.player.position.clone().sub(this.mesh.position);
         dir.y = 0;
         const dist = dir.length();

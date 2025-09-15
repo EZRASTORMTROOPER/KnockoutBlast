@@ -25,8 +25,19 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7fb0ff);
 scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
 
-// --- Camera (third‑person follow) ---
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
+  // --- Camera (third‑person follow) ---
+  const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
+
+  // Audio setup
+  const listener = new THREE.AudioListener();
+  camera.add(listener);
+  const audioLoader = new THREE.AudioLoader();
+  const nightSound = new THREE.Audio(listener);
+  audioLoader.load('audio/horror-drone.wav', (buffer) => {
+    nightSound.setBuffer(buffer);
+    nightSound.setLoop(true);
+    nightSound.setVolume(0.5);
+  });
 
 // --- Lights ---
 const hemi = new THREE.HemisphereLight(0xffffff, 0x335533, 0.6);
@@ -138,15 +149,15 @@ function updateHealthUI() {
 }
 
 // Rabbits and day/night cycle
-const rabbits = [
-  new Rabbit(scene, player, 1, {
-    onTrap: () => { controls.trappedUntil = performance.now() + 2000; }
-  }),
-  new Rabbit(scene, player, 2),
-  new Rabbit(scene, player, 3, {
-    onAttack: () => { playerHealth *= 0.5; updateHealthUI(); }
-  })
-];
+  const rabbits = [
+    new Rabbit(scene, player, 1, {
+      onTrap: () => { controls.trappedUntil = performance.now() + 2000; }
+    }, listener, audioLoader),
+    new Rabbit(scene, player, 2, {}, listener, audioLoader),
+    new Rabbit(scene, player, 3, {
+      onAttack: () => { playerHealth *= 0.5; updateHealthUI(); }
+    }, listener, audioLoader)
+  ];
 const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;
 
@@ -231,9 +242,14 @@ initControls(renderer.domElement, handleClick);
 let velY = 0; // vertical velocity for jumping/gravity
 const GRAV = 22;
 
-function update(dt){
-  dayNight.update(dt);
-  const { yaw, pitch, keys } = controls;
+  function update(dt){
+    dayNight.update(dt);
+    if (dayNight.isNight) {
+      if (nightSound.buffer && !nightSound.isPlaying) nightSound.play();
+    } else if (nightSound.isPlaying) {
+      nightSound.stop();
+    }
+    const { yaw, pitch, keys } = controls;
   const now = performance.now();
   // Move on XZ using yaw (aim direction)
   const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
