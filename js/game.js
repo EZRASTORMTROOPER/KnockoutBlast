@@ -137,11 +137,16 @@ function updateHealthUI() {
   healthEl.textContent = `Health: ${Math.round(playerHealth)}`;
 }
 
-// Rabbit enemy and day/night cycle
-const rabbit = new Rabbit(scene, player, () => {
+// Rabbits and day/night cycle
+function rabbitAttack() {
   playerHealth *= 0.5;
   updateHealthUI();
-});
+}
+const rabbits = [
+  new Rabbit(scene, player, { type:1, home:new THREE.Vector3(30,0,-30), homeType:'house', scream:true, health:1000, onAttack:rabbitAttack }),
+  new Rabbit(scene, player, { type:2, home:new THREE.Vector3(-30,0,30), homeType:'sheep', health:1000, onAttack:rabbitAttack }),
+  new Rabbit(scene, player, { type:3, home:new THREE.Vector3(-30,0,-30), homeType:'cave', activeDuringDay:true, dragDuration:3, health:1000, onAttack:rabbitAttack })
+];
 const dayNight = new DayNightCycle(scene, sun, hemi);
 
 // Camera offset relative to player in local space (over‑the‑shoulder)
@@ -191,8 +196,9 @@ function shootBullet(){
 }
 function handleClick(){
   const onGround = player.position.y <= 0.001;
-  if (rabbit.isDragging && onGround) {
-    rabbit.kick();
+  const dragging = rabbits.find(r => r.isDragging);
+  if (dragging && onGround) {
+    dragging.kick();
   } else {
     shootBullet();
   }
@@ -207,12 +213,11 @@ const GRAV = 22;
 
 function update(dt){
   dayNight.update(dt);
-  if (dayNight.isNight) {
-    rabbit.startNight();
-  } else {
-    rabbit.endNight();
+  for (const r of rabbits) {
+    if (dayNight.isNight || r.activeDuringDay) r.startNight();
+    else r.endNight();
   }
-const { yaw, pitch, keys } = controls;
+  const { yaw, pitch, keys } = controls;
   const now = performance.now();
   // Move on XZ using yaw (aim direction)
   const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
@@ -275,10 +280,23 @@ const { yaw, pitch, keys } = controls;
     }
     if (b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); balls.splice(i,1);
+      continue;
     }
+    let hitRabbit = false;
+    for (const r of rabbits) {
+      if (!r.visible) continue;
+      const radius = BALL_RADIUS * b.mesh.scale.x;
+      if (b.mesh.position.distanceTo(r.mesh.position) < radius + 1.5) {
+        r.takeDamage(50);
+        scene.remove(b.mesh); balls.splice(i,1);
+        hitRabbit = true;
+        break;
+      }
+    }
+    if (hitRabbit) continue;
   }
 
-  // Bullets update and collision with balls
+  // Bullets update and collision with balls/rabbits
   for (let i=bullets.length-1;i>=0;i--){
     const b = bullets[i];
     b.mesh.position.addScaledVector(b.vel, dt);
@@ -287,6 +305,7 @@ const { yaw, pitch, keys } = controls;
     if (life > 1 || b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); bullets.splice(i,1); continue;
     }
+    let hitSomething = false;
     for (let j = balls.length - 1; j >= 0; j--) {
       const ball = balls[j];
       const radius = BALL_RADIUS * ball.mesh.scale.x;
@@ -296,12 +315,24 @@ const { yaw, pitch, keys } = controls;
         if (ball.mesh.scale.x < 0.2) {
           scene.remove(ball.mesh); balls.splice(j,1);
         }
+        hitSomething = true;
         break;
       }
     }
+    if (hitSomething) continue;
+    for (const r of rabbits) {
+      if (!r.visible) continue;
+      if (b.mesh.position.distanceTo(r.mesh.position) < 1.5) {
+        r.takeDamage(20);
+        scene.remove(b.mesh); bullets.splice(i,1);
+        hitSomething = true;
+        break;
+      }
+    }
+    if (hitSomething) continue;
   }
 
-  rabbit.update(dt);
+  for (const r of rabbits) r.update(dt);
 }
 
 // --- Animate ---
