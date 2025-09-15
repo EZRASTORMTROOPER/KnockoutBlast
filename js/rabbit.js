@@ -85,6 +85,19 @@ export class Rabbit {
 
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
 
+    const loader = new THREE.TextureLoader();
+    const tex = loader.load(`../assets/faces/face${type}.png`);
+    const headRadius = 0.8 * this.mesh.scale.x;
+    const faceSize = headRadius * 2;
+    this.face = new THREE.Mesh(
+      new THREE.PlaneGeometry(faceSize, faceSize),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+    );
+    this.scene.add(this.face);
+    this.face.visible = false;
+    this.headOffset = new THREE.Vector3(0, 2.1, 0);
+    this.headRadius = headRadius + 0.01;
+
     // health bar UI
     this.healthBar = document.createElement('div');
     this.healthBar.className = 'rabbit-health';
@@ -179,6 +192,16 @@ export class Rabbit {
         this.onTrap();
       }
       if (dist >= 3) this.trapped = false;
+    }
+
+    if (this.face) {
+      this.face.visible = isNight && this.visible;
+      if (this.face.visible) {
+        const headPos = this.mesh.localToWorld(this.headOffset.clone());
+        const dir = this.player.position.clone().sub(headPos).normalize();
+        this.face.position.copy(headPos.clone().addScaledVector(dir, this.headRadius));
+        this.face.lookAt(this.player.position);
+      }
     }
 
     this.updateHealthBar(camera);
