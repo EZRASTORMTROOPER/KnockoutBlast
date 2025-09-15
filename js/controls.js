@@ -8,11 +8,21 @@ export const controls = {
 export function initControls(domElement, shoot) {
   const hint = document.getElementById('hint');
   addEventListener('keydown', e => {
-    if (e.code === 'Escape' && controls.pointerLocked) {
-      document.exitPointerLock();
-    } else {
-      controls.keys.add(e.code);
+    if (e.code === 'Escape') {
+      const menu = document.getElementById('settingsMenu');
+      if (controls.pointerLocked) {
+        document.exitPointerLock();
+      } else if (menu) {
+        if (menu.classList.contains('hidden')) {
+          menu.classList.remove('hidden');
+        } else {
+          menu.classList.add('hidden');
+          domElement.requestPointerLock();
+        }
+      }
+      return;
     }
+    controls.keys.add(e.code);
   });
   addEventListener('keyup', e => {
     controls.keys.delete(e.code);
@@ -30,6 +40,8 @@ export function initControls(domElement, shoot) {
   document.addEventListener('pointerlockchange', () => {
     controls.pointerLocked = document.pointerLockElement === domElement;
     hint.classList.toggle('hidden', controls.pointerLocked);
+    const menu = document.getElementById('settingsMenu');
+    if (menu) menu.classList.toggle('hidden', controls.pointerLocked);
   });
 
   addEventListener('mousemove', e => {

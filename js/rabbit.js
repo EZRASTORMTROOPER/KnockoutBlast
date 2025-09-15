@@ -57,6 +57,8 @@ function createCave() {
 }
 
 export class Rabbit {
+  static faceOffset = 0.01;
+
   constructor(scene, player, type, callbacks = {}) {
     this.scene = scene;
     this.player = player;
@@ -199,7 +201,7 @@ export class Rabbit {
       if (this.face.visible) {
         const headPos = this.mesh.localToWorld(this.headOffset.clone());
         const dir = this.player.position.clone().sub(headPos).normalize();
-        this.face.position.copy(headPos.clone().addScaledVector(dir, this.headRadius));
+        this.face.position.copy(headPos.clone().addScaledVector(dir, this.headRadius + Rabbit.faceOffset));
         this.face.lookAt(this.player.position);
       }
     }

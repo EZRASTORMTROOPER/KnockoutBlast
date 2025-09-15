@@ -15,10 +15,60 @@ app.appendChild(renderer.domElement);
 // UI controls
 const ballSlider = document.getElementById('ballSlider');
 const ballCountLabel = document.getElementById('ballCountLabel');
+const volumeSlider = document.getElementById('volumeSlider');
+const faceSlider = document.getElementById('faceSlider');
+const rabbitHealthSlider = document.getElementById('rabbitHealthSlider');
+const rabbitHealthLabel = document.getElementById('rabbitHealthLabel');
+const bulletDamageSlider = document.getElementById('bulletDamageSlider');
+const bulletDamageLabel = document.getElementById('bulletDamageLabel');
+const ballDamageSlider = document.getElementById('ballDamageSlider');
+const ballDamageLabel = document.getElementById('ballDamageLabel');
+const resumeBtn = document.getElementById('resumeBtn');
+
 let maxBalls = parseInt(ballSlider.value);
+let masterVolume = parseFloat(volumeSlider.value);
+let rabbitMaxHealth = parseInt(rabbitHealthSlider.value);
+let bulletDamage = parseInt(bulletDamageSlider.value);
+let ballDamage = parseInt(ballDamageSlider.value);
+
+const ambient = new Audio('audio/horror-drone.wav');
+ambient.loop = true;
+ambient.volume = masterVolume;
+ambient.play();
+
+ballCountLabel.textContent = ballSlider.value;
+rabbitHealthLabel.textContent = rabbitHealthSlider.value;
+bulletDamageLabel.textContent = bulletDamageSlider.value;
+ballDamageLabel.textContent = ballDamageSlider.value;
+
 ballSlider.addEventListener('input', () => {
   ballCountLabel.textContent = ballSlider.value;
   maxBalls = parseInt(ballSlider.value);
+});
+volumeSlider.addEventListener('input', () => {
+  masterVolume = parseFloat(volumeSlider.value);
+  ambient.volume = masterVolume;
+});
+Rabbit.faceOffset = parseFloat(faceSlider.value);
+faceSlider.addEventListener('input', () => {
+  Rabbit.faceOffset = parseFloat(faceSlider.value);
+});
+const rabbits = [];
+rabbitHealthSlider.addEventListener('input', () => {
+  rabbitHealthLabel.textContent = rabbitHealthSlider.value;
+  rabbitMaxHealth = parseInt(rabbitHealthSlider.value);
+  rabbits.forEach(r => { r.maxHealth = rabbitMaxHealth; r.health = Math.min(r.health, rabbitMaxHealth); });
+});
+bulletDamageSlider.addEventListener('input', () => {
+  bulletDamageLabel.textContent = bulletDamageSlider.value;
+  bulletDamage = parseInt(bulletDamageSlider.value);
+});
+ballDamageSlider.addEventListener('input', () => {
+  ballDamageLabel.textContent = ballDamageSlider.value;
+  ballDamage = parseInt(ballDamageSlider.value);
+});
+resumeBtn.addEventListener('click', () => {
+  renderer.domElement.requestPointerLock();
 });
 
 const scene = new THREE.Scene();
@@ -138,15 +188,21 @@ function updateHealthUI() {
 }
 
 // Rabbits and day/night cycle
-const rabbits = [
+// create rabbits after sliders are set
+rabbits.push(
   new Rabbit(scene, player, 1, {
     onTrap: () => { controls.trappedUntil = performance.now() + 2000; }
-  }),
-  new Rabbit(scene, player, 2),
+  })
+);
+rabbits.push(
+  new Rabbit(scene, player, 2)
+);
+rabbits.push(
   new Rabbit(scene, player, 3, {
     onAttack: () => { playerHealth *= 0.5; updateHealthUI(); }
   })
-];
+);
+rabbits.forEach(r => { r.maxHealth = rabbitMaxHealth; r.health = rabbitMaxHealth; });
 const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;
 
@@ -304,7 +360,7 @@ function update(dt){
       if (!r.visible) continue;
       const radius = BALL_RADIUS * b.mesh.scale.x;
       if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
-        r.hitByBall();
+        r.hitByBall(ballDamage);
         scene.remove(b.mesh); balls.splice(i,1);
         break;
       }
@@ -320,6 +376,15 @@ function update(dt){
     if (life > 1 || b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); bullets.splice(i,1); continue;
     }
+    let hit = false;
+    for (const r of rabbits) {
+      if (!r.visible) continue;
+      if (b.mesh.position.distanceTo(r.mesh.position) < 1) {
+        r.damage(bulletDamage);
+        scene.remove(b.mesh); bullets.splice(i,1); hit = true; break;
+      }
+    }
+    if (hit) continue;
     for (let j = balls.length - 1; j >= 0; j--) {
       const ball = balls[j];
       const radius = BALL_RADIUS * ball.mesh.scale.x;
