@@ -185,13 +185,27 @@ function shootBullet(){
   const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
   const muzzleWorld = player.localToWorld(muzzle.clone());
 
-  // Determine a target straight ahead from the camera (crosshair)
-  const aimDir = new THREE.Vector3();
-  camera.getWorldDirection(aimDir);
-  const target = camera.position.clone().add(aimDir.clone().multiplyScalar(100));
+  // Snap camera to current aim so there's no smoothing lag when firing
+  const camRot = new THREE.Euler(controls.pitch, controls.yaw, 0, 'YXZ');
+  const camQuat = new THREE.Quaternion().setFromEuler(camRot);
+  const camPos = player.position.clone().add(camOffset.clone().applyEuler(camRot));
+  camera.position.copy(camPos);
+  camera.quaternion.copy(camQuat);
+  camera.updateMatrixWorld();
 
-  // Aim from the muzzle toward that target so bullets pass through the crosshair
-  const dir = target.sub(muzzleWorld).normalize();
+  // Raycast from screen center
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera({ x: 0, y: 0 }, camera);
+
+  // Find the first intersection that's not part of the player
+  const intersects = raycaster.intersectObjects(scene.children, true)
+    .filter(i => i.object !== player && !player.children.includes(i.object));
+  const hitPoint = intersects.length > 0
+    ? intersects[0].point
+    : raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(100));
+
+  // Aim from the muzzle toward the hit point so bullets pass through the crosshair
+  const dir = hitPoint.clone().sub(muzzleWorld).normalize();
 
   const mesh = new THREE.Mesh(bulletGeo, bulletMat);
   mesh.position.copy(muzzleWorld);
