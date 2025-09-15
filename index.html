@@ -63,8 +63,10 @@
       user-select: none;
     }
     .rabbit-health {
-      position: fixed;
-      width: 60px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 120px;
       height: 8px;
       background: rgba(80,0,0,0.8);
       border: 1px solid #300;
@@ -82,6 +84,30 @@
       transform: translateX(-50%);
       color: #fff;
       font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    .house-health {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 80px;
+      height: 6px;
+      background: rgba(80,80,80,0.8);
+      border: 1px solid #333;
+      pointer-events: none;
+    }
+    .house-health .fill {
+      background: #3498db;
+      height: 100%;
+      width: 100%;
+    }
+    .house-health .label {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font: 11px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
   </style>
 </head>

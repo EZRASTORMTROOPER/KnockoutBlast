@@ -299,19 +299,26 @@ function update(dt){
     if (b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); balls.splice(i,1);
     }
-    // collision with rabbits
+    // collision with rabbits or houses
+    const radius = BALL_RADIUS * b.mesh.scale.x;
+    let hit = false;
     for (const r of rabbits) {
-      if (!r.visible) continue;
-      const radius = BALL_RADIUS * b.mesh.scale.x;
-      if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
+      if (!hit && r.visible && r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
         r.hitByBall();
+        hit = true;
+      }
+      if (!hit && !r.houseDestroyed && r.house.position.distanceTo(b.mesh.position) < radius + 2) {
+        r.damageHouse();
+        hit = true;
+      }
+      if (hit) {
         scene.remove(b.mesh); balls.splice(i,1);
         break;
       }
     }
   }
 
-  // Bullets update and collision with balls
+  // Bullets update and collision with balls/rabbits/houses
   for (let i=bullets.length-1;i>=0;i--){
     const b = bullets[i];
     b.mesh.position.addScaledVector(b.vel, dt);
@@ -320,17 +327,34 @@ function update(dt){
     if (life > 1 || b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); bullets.splice(i,1); continue;
     }
+    let hit = false;
     for (let j = balls.length - 1; j >= 0; j--) {
       const ball = balls[j];
       const radius = BALL_RADIUS * ball.mesh.scale.x;
       if (b.mesh.position.distanceTo(ball.mesh.position) < radius + 0.1) {
         ball.mesh.scale.multiplyScalar(0.7);
-        scene.remove(b.mesh); bullets.splice(i,1);
+        hit = true;
         if (ball.mesh.scale.x < 0.2) {
           scene.remove(ball.mesh); balls.splice(j,1);
         }
         break;
       }
+    }
+    if (!hit) {
+      for (const r of rabbits) {
+        if (!hit && r.visible && b.mesh.position.distanceTo(r.mesh.position) < 1) {
+          r.damage(5);
+          hit = true;
+        }
+        if (!hit && !r.houseDestroyed && b.mesh.position.distanceTo(r.house.position) < 2) {
+          r.damageHouse();
+          hit = true;
+        }
+        if (hit) break;
+      }
+    }
+    if (hit) {
+      scene.remove(b.mesh); bullets.splice(i,1);
     }
   }
 
@@ -360,6 +384,10 @@ addEventListener('resize', ()=>{
   camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  for (const r of rabbits) {
+    r.updateHealthBar(camera);
+    r.updateHouseBar(camera);
+  }
 });
 
 animate();
