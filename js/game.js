@@ -11,6 +11,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 app.appendChild(renderer.domElement);
+const crosshairEl = document.querySelector('.crosshair');
 
 // UI controls
 const ballSlider = document.getElementById('ballSlider');
@@ -26,7 +27,9 @@ scene.background = new THREE.Color(0x7fb0ff);
 scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
 
 // --- Camera (third‑person follow) ---
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
+const HIP_FOV = 70;
+const AIM_FOV = 50;
+const camera = new THREE.PerspectiveCamera(HIP_FOV, innerWidth/innerHeight, 0.1, 500);
 
 // --- Lights ---
 const hemi = new THREE.HemisphereLight(0xffffff, 0x335533, 0.6);
@@ -150,8 +153,9 @@ const rabbits = [
 const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;
 
-// Camera offset relative to player in local space (over‑the‑shoulder)
+// Camera offsets
 const camOffset = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
+const aimOffset = new THREE.Vector3(0.4, 1.7, 1.6); // closer when aiming
 
 // --- Bullets ---
 const bullets = [];
@@ -188,6 +192,13 @@ function shootBullet(){
   // Determine a target straight ahead from the camera (crosshair)
   const aimDir = new THREE.Vector3();
   camera.getWorldDirection(aimDir);
+  if (!controls.aim) {
+    const spread = 0.04;
+    aimDir.x += (Math.random() - 0.5) * spread;
+    aimDir.y += (Math.random() - 0.5) * spread;
+    aimDir.z += (Math.random() - 0.5) * spread;
+    aimDir.normalize();
+  }
   const target = camera.position.clone().add(aimDir.clone().multiplyScalar(100));
 
   // Aim from the muzzle toward that target so bullets pass through the crosshair
@@ -251,11 +262,15 @@ function update(dt){
 
   // Update camera to orbit around player
     const camRot = new THREE.Euler(pitch, yaw, 0, 'YXZ');
-    const offsetWorld = camOffset.clone().applyEuler(camRot);
+    const offset = controls.aim ? aimOffset : camOffset;
+    const offsetWorld = offset.clone().applyEuler(camRot);
     const camPos = player.position.clone().add(offsetWorld);
     camera.position.lerp(camPos, 0.85);
     const camQuat = new THREE.Quaternion().setFromEuler(camRot);
     camera.quaternion.slerp(camQuat, 0.85);
+    camera.fov += ((controls.aim ? AIM_FOV : HIP_FOV) - camera.fov) * 0.1;
+    camera.updateProjectionMatrix();
+    crosshairEl.classList.toggle('aim', controls.aim);
 
   // Spawn balls from dispensers
   for (const d of dispensers) {

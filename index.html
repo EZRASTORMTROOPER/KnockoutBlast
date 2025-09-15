@@ -17,8 +17,13 @@
     }
     .ui b { color: #fff; }
     .crosshair {
-      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      position: fixed; left: 50%; top: 50%;
+      transform: translate(-50%, -50%) scale(1);
       width: 14px; height: 14px; pointer-events: none; opacity: 0.85;
+      transition: transform 0.1s;
+    }
+    .crosshair.aim {
+      transform: translate(-50%, -50%) scale(0.6);
     }
     .crosshair:before, .crosshair:after {
       content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
