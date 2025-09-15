@@ -207,8 +207,9 @@ function updateHealthUI() {
 const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;
 
-// Camera offset relative to player in local space (over‑the‑shoulder)
+// Camera offsets (default over‑the‑shoulder vs. aiming)
 const camOffset = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
+const camAimOffset = new THREE.Vector3(0.4, 1.6, 2.5); // closer when aiming
 
 // --- Bullets ---
 const bullets = [];
@@ -330,12 +331,16 @@ const GRAV = 22;
   armR.rotation.x = pitch * 0.75;
 
   // Update camera to orbit around player
-    const camRot = new THREE.Euler(pitch, yaw, 0, 'YXZ');
-    const offsetWorld = camOffset.clone().applyEuler(camRot);
-    const camPos = player.position.clone().add(offsetWorld);
-    camera.position.lerp(camPos, 0.85);
-    const camQuat = new THREE.Quaternion().setFromEuler(camRot);
-    camera.quaternion.slerp(camQuat, 0.85);
+  const camRot = new THREE.Euler(pitch, yaw, 0, 'YXZ');
+  const targetOffset = controls.aiming ? camAimOffset : camOffset;
+  const offsetWorld = targetOffset.clone().applyEuler(camRot);
+  const camPos = player.position.clone().add(offsetWorld);
+  camera.position.lerp(camPos, 0.85);
+  const camQuat = new THREE.Quaternion().setFromEuler(camRot);
+  camera.quaternion.slerp(camQuat, 0.85);
+  const targetFov = controls.aiming ? 45 : 70;
+  camera.fov += (targetFov - camera.fov) * 0.1;
+  camera.updateProjectionMatrix();
 
   // Spawn balls from dispensers
   for (const d of dispensers) {
