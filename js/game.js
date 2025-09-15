@@ -283,20 +283,35 @@ function update(dt){
     }
     if (b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); balls.splice(i,1);
+      continue;
     }
+    const radius = BALL_RADIUS * b.mesh.scale.x;
+    let handled = false;
     // collision with rabbits
     for (const r of rabbits) {
       if (!r.visible) continue;
-      const radius = BALL_RADIUS * b.mesh.scale.x;
       if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
         r.hitByBall();
         scene.remove(b.mesh); balls.splice(i,1);
+        handled = true;
         break;
       }
     }
+    if (handled) continue;
+    // collision with houses
+    for (const r of rabbits) {
+      if (r.houseHealth <= 0) continue;
+      if (r.house.position.distanceTo(b.mesh.position) < radius + 2) {
+        r.damageHouse();
+        scene.remove(b.mesh); balls.splice(i,1);
+        handled = true;
+        break;
+      }
+    }
+    if (handled) continue;
   }
 
-  // Bullets update and collision with balls
+  // Bullets update and collision with objects
   for (let i=bullets.length-1;i>=0;i--){
     const b = bullets[i];
     b.mesh.position.addScaledVector(b.vel, dt);
@@ -305,6 +320,7 @@ function update(dt){
     if (life > 1 || b.mesh.position.length() > groundSize) {
       scene.remove(b.mesh); bullets.splice(i,1); continue;
     }
+    let hit = false;
     for (let j = balls.length - 1; j >= 0; j--) {
       const ball = balls[j];
       const radius = BALL_RADIUS * ball.mesh.scale.x;
@@ -314,9 +330,24 @@ function update(dt){
         if (ball.mesh.scale.x < 0.2) {
           scene.remove(ball.mesh); balls.splice(j,1);
         }
+        hit = true;
         break;
       }
     }
+    if (hit) continue;
+    for (const r of rabbits) {
+      if (r.visible && b.mesh.position.distanceTo(r.mesh.position) < 1) {
+        r.damage(20);
+        hit = true;
+        break;
+      }
+      if (!hit && r.houseHealth > 0 && b.mesh.position.distanceTo(r.house.position) < 2.5) {
+        r.damageHouse();
+        hit = true;
+        break;
+      }
+    }
+    if (hit) { scene.remove(b.mesh); bullets.splice(i,1); }
   }
 
   for (const r of rabbits) {

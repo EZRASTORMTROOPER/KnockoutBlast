@@ -83,6 +83,17 @@ export class Rabbit {
     this.house.position.copy(this.home);
     scene.add(this.house);
 
+    this.houseMaxHealth = 1;
+    this.houseHealth = this.houseMaxHealth;
+    this.houseBar = document.createElement('div');
+    this.houseBar.className = 'house-health';
+    this.houseFill = document.createElement('div');
+    this.houseFill.className = 'fill';
+    this.houseLabel = document.createElement('div');
+    this.houseLabel.className = 'label';
+    this.houseBar.append(this.houseFill, this.houseLabel);
+    document.body.appendChild(this.houseBar);
+
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
 
     // health bar UI
@@ -124,6 +135,15 @@ export class Rabbit {
     }
   }
 
+  damageHouse(amount = 1) {
+    if (this.houseHealth <= 0) return;
+    this.houseHealth -= amount;
+    if (this.houseHealth <= 0) {
+      this.houseHealth = 0;
+      if (this.house.parent) this.scene.remove(this.house);
+    }
+  }
+
   hitByBall(amount = 10) {
     if (this.immune) { this.immune = false; return; }
     this.damage(amount);
@@ -138,6 +158,14 @@ export class Rabbit {
 
   update(dt, isNight, camera) {
     if (isNight) this.startNight(); else this.endNight();
+    if (this.houseHealth < this.houseMaxHealth) {
+      this.houseHealth += dt * 0.2;
+      if (this.houseHealth >= this.houseMaxHealth) {
+        this.houseHealth = this.houseMaxHealth;
+        if (!this.house.parent) this.scene.add(this.house);
+      }
+    }
+    this.updateHouseBar(camera);
     if (!this.visible) {
       this.updateHealthBar(camera);
       return;
@@ -193,10 +221,27 @@ export class Rabbit {
     pos.project(camera);
     const x = (pos.x * 0.5 + 0.5) * innerWidth;
     const y = (-pos.y * 0.5 + 0.5) * innerHeight;
-    this.healthBar.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+    this.healthBar.style.left = `${x}px`;
+    this.healthBar.style.top = `${y}px`;
     const pct = this.health / this.maxHealth;
     this.healthFill.style.width = `${pct * 100}%`;
     this.healthLabel.textContent = Math.round(this.health);
+  }
+
+  updateHouseBar(camera) {
+    const disp = this.houseHealth > 0;
+    this.houseBar.style.display = disp ? 'block' : 'none';
+    if (!disp) return;
+    const pos = this.house.position.clone();
+    pos.y += 3;
+    pos.project(camera);
+    const x = (pos.x * 0.5 + 0.5) * innerWidth;
+    const y = (-pos.y * 0.5 + 0.5) * innerHeight;
+    this.houseBar.style.left = `${x}px`;
+    this.houseBar.style.top = `${y}px`;
+    const pct = this.houseHealth / this.houseMaxHealth;
+    this.houseFill.style.width = `${pct * 100}%`;
+    this.houseLabel.textContent = Math.round(this.houseHealth);
   }
 }
 

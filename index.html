@@ -62,20 +62,24 @@
       box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
       user-select: none;
     }
-    .rabbit-health {
+    .rabbit-health,
+    .house-health {
       position: fixed;
+      transform: translate(-50%, -50%);
       width: 60px;
       height: 8px;
       background: rgba(80,0,0,0.8);
       border: 1px solid #300;
       pointer-events: none;
     }
-    .rabbit-health .fill {
+    .rabbit-health .fill,
+    .house-health .fill {
       background: #2ecc71;
       height: 100%;
       width: 100%;
     }
-    .rabbit-health .label {
+    .rabbit-health .label,
+    .house-health .label {
       position: absolute;
       top: -14px;
       left: 50%;
