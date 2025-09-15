@@ -181,17 +181,31 @@ for (const d of dispensers) {
 }
 
 function shootBullet(){
-  // Muzzle position slightly in front/right of player chest, aligned with aim
-  const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
-  const muzzleWorld = player.localToWorld(muzzle.clone());
+  // Determine muzzle position accounting for arm/gun rotation
+  const muzzleWorld = new THREE.Vector3();
+  gun.getWorldPosition(muzzleWorld);
 
-  // Determine a target straight ahead from the camera (crosshair)
+  // Raycast from camera toward crosshair to find the first hit point
   const aimDir = new THREE.Vector3();
   camera.getWorldDirection(aimDir);
-  const target = camera.position.clone().add(aimDir.clone().multiplyScalar(100));
+  const raycaster = new THREE.Raycaster(camera.position.clone(), aimDir);
 
-  // Aim from the muzzle toward that target so bullets pass through the crosshair
-  const dir = target.sub(muzzleWorld).normalize();
+  // Exclude the player model from raycast results
+  const intersects = raycaster.intersectObjects(scene.children, true).filter(i => {
+    let obj = i.object;
+    while (obj) {
+      if (obj === player) return false;
+      obj = obj.parent;
+    }
+    return true;
+  });
+
+  const hitPoint = intersects.length > 0
+    ? intersects[0].point
+    : camera.position.clone().add(aimDir.clone().multiplyScalar(1000));
+
+  // Bullet direction from muzzle toward hit point
+  const dir = hitPoint.clone().sub(muzzleWorld).normalize();
 
   const mesh = new THREE.Mesh(bulletGeo, bulletMat);
   mesh.position.copy(muzzleWorld);
