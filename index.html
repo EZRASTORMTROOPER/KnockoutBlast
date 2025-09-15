@@ -45,6 +45,29 @@
       user-select: none;
     }
     .panel input[type=range] { width: 160px; }
+
+    .health { top: 80px; }
+
+    .day-night-ui {
+      position: fixed; top: 16px; right: 16px;
+      width: 48px; height: 48px;
+    }
+    .day-night-ui svg {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      transform: rotate(-90deg);
+    }
+    .day-night-ui .track {
+      stroke: #555; stroke-width: 4; fill: none; opacity: 0.3;
+    }
+    .day-night-ui .progress {
+      stroke: #facc15; stroke-width: 4; fill: none; stroke-linecap: round;
+      stroke-dasharray: 100; stroke-dashoffset: 100;
+    }
+    .day-night-ui .icon {
+      position: absolute; inset: 0; display: flex; align-items: center;
+      justify-content: center; font-size: 24px;
+    }
   </style>
 </head>
 <body>
@@ -53,6 +76,14 @@
     <div class="hint" id="hint">Click to lock the mouse (<b>Esc</b> to release). <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
   <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
   <div class="panel">Balls: <input type="range" id="ballSlider" min="100" max="10000" value="2000" /> <span id="ballCountLabel">2000</span></div>
+  <div id="healthUI" class="panel health">Health: <span id="healthLabel">100</span></div>
+  <div id="dayNightUI" class="day-night-ui">
+    <svg viewBox="0 0 36 36">
+      <circle class="track" cx="18" cy="18" r="16" />
+      <circle class="progress" cx="18" cy="18" r="16" />
+    </svg>
+    <div class="icon">☀️</div>
+  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>

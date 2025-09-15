@@ -1,5 +1,6 @@
 import { controls, initControls } from "./controls.js";
 import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+import { DayNightCycle } from './dayNight.js';
 export function startGame() {
 
 // --- Renderer & Scene ---
@@ -19,9 +20,13 @@ ballSlider.addEventListener('input', () => {
   maxBalls = parseInt(ballSlider.value);
 });
 
+const healthLabel = document.getElementById('healthLabel');
+let playerHealth = 100;
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7fb0ff);
 scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
+const dayNight = new DayNightCycle(scene);
 
 // --- Camera (third‑person follow) ---
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 500);
@@ -162,23 +167,27 @@ function makeScaryRabbit() {
   return g;
 }
 
-const rabbit = makeScaryRabbit();
-let rabbitVisible = false;
-
-function spawnRabbit() {
-  const candidates = trees.filter(t => {
-    const d = t.position.distanceTo(player.position);
-    return d > 15 && d < 45;
-  });
-  if (candidates.length === 0) return;
-  const tree = candidates[Math.floor(Math.random() * candidates.length)];
-  const away = player.position.clone().sub(tree.position).normalize();
-  rabbit.position.copy(tree.position.clone().add(away.multiplyScalar(-2.2)));
-  scene.add(rabbit);
-  rabbitVisible = true;
+function makeRabbitCave() {
+  const geo = new THREE.SphereGeometry(3, 16, 12, 0, Math.PI);
+  const mat = new THREE.MeshLambertMaterial({ color: 0x444444, side: THREE.DoubleSide });
+  const cave = new THREE.Mesh(geo, mat);
+  cave.rotation.y = Math.PI;
+  cave.position.y = 1.5;
+  cave.castShadow = true; cave.receiveShadow = true;
+  return cave;
 }
 
-spawnRabbit();
+const cavePos = new THREE.Vector3(-20, 0, -20);
+const cave = makeRabbitCave();
+cave.position.copy(cavePos);
+scene.add(cave);
+
+const rabbit = makeScaryRabbit();
+rabbit.position.copy(cavePos.clone().add(new THREE.Vector3(0,0,2)));
+scene.add(rabbit);
+let rabbitChasing = false;
+let rabbitDragging = false;
+let rabbitFleeing = false;
 
 
 // Camera offset relative to player in local space (over‑the‑shoulder)
@@ -211,12 +220,19 @@ for (const d of dispensers) {
   scene.add(m);
 }
 
-function shoot(){
-  // Muzzle position slightly in front/right of player chest, aligned with aim
+function onAction(){
+  const onGround = player.position.y <= 0.001;
+  const dist = rabbit.position.distanceTo(player.position);
+  if (onGround && dist < 2 && (rabbitChasing || rabbitDragging)) {
+    rabbitChasing = false;
+    rabbitDragging = false;
+    rabbitFleeing = true;
+    return;
+  }
+
   const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
   const muzzleWorld = player.localToWorld(muzzle.clone());
 
-  // Forward direction from camera (aim)
   const dir = new THREE.Vector3();
   camera.getWorldDirection(dir);
 
@@ -226,7 +242,7 @@ function shoot(){
 
   bullets.push({ mesh, vel: dir.multiplyScalar(38), born: performance.now() });
 }
-initControls(renderer.domElement, shoot);
+initControls(renderer.domElement, onAction);
 
 
 
@@ -235,8 +251,18 @@ let velY = 0; // vertical velocity for jumping/gravity
 const GRAV = 22;
 
 function update(dt){
-const { yaw, pitch, keys } = controls;
+  const { yaw, pitch, keys } = controls;
   const now = performance.now();
+  dayNight.update(dt);
+  const night = dayNight.isNight();
+  if (night && !rabbitChasing && !rabbitDragging && !rabbitFleeing) {
+    rabbitChasing = true;
+    rabbit.position.copy(cavePos.clone().add(new THREE.Vector3(0,0,2)));
+  }
+  if (!night && (rabbitChasing || rabbitDragging || rabbitFleeing)) {
+    rabbitChasing = false; rabbitDragging = false; rabbitFleeing = false;
+    rabbit.position.copy(cavePos.clone().add(new THREE.Vector3(0,0,2)));
+  }
   // Move on XZ using yaw (aim direction)
   const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
   const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
@@ -324,15 +350,28 @@ const { yaw, pitch, keys } = controls;
     }
   }
 
-  // Remove rabbit if looked at
-  if (rabbitVisible) {
-    const camDir = new THREE.Vector3();
-    camera.getWorldDirection(camDir);
-    const toRabbit = rabbit.position.clone().sub(camera.position).normalize();
-    if (camDir.angleTo(toRabbit) < 0.3) {
-      scene.remove(rabbit);
-      rabbitVisible = false;
+  // Rabbit behaviour
+  if (rabbitChasing) {
+    const dir = player.position.clone().sub(rabbit.position);
+    const dist = dir.length();
+    dir.normalize();
+    rabbit.position.addScaledVector(dir, 3 * dt);
+    if (dist < 1.2) {
+      rabbitChasing = false;
+      rabbitDragging = true;
+      playerHealth *= 0.5;
+      healthLabel.textContent = Math.round(playerHealth);
     }
+  } else if (rabbitDragging) {
+    const dir = cavePos.clone().sub(rabbit.position).normalize();
+    rabbit.position.addScaledVector(dir, 2 * dt);
+    player.position.addScaledVector(dir, 2 * dt);
+  } else if (rabbitFleeing) {
+    const dir = cavePos.clone().sub(rabbit.position);
+    const dist = dir.length();
+    dir.normalize();
+    rabbit.position.addScaledVector(dir, 6 * dt);
+    if (dist < 1) rabbitFleeing = false;
   }
 }
 
