@@ -66,7 +66,7 @@ export class Rabbit {
     this.mesh = makeRabbit();
     this.visible = false;
 
-    this.maxHealth = 500;
+    this.maxHealth = 1000;
     this.health = this.maxHealth;
     this.immune = type === 2; // survives one hit
     this.isDragging = false; // for type 3
@@ -82,10 +82,13 @@ export class Rabbit {
     else this.house = createCave();
     this.house.position.copy(this.home);
     scene.add(this.house);
+    this.houseMaxHealth = 100;
+    this.houseHealth = this.houseMaxHealth;
+    this.houseDestroyedTime = null;
 
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
 
-    // health bar UI
+    // health bar UI for rabbit
     this.healthBar = document.createElement('div');
     this.healthBar.className = 'rabbit-health';
     this.healthFill = document.createElement('div');
@@ -95,6 +98,17 @@ export class Rabbit {
     this.healthBar.appendChild(this.healthFill);
     this.healthBar.appendChild(this.healthLabel);
     document.body.appendChild(this.healthBar);
+
+    // house health bar UI
+    this.houseBar = document.createElement('div');
+    this.houseBar.className = 'house-health';
+    this.houseFill = document.createElement('div');
+    this.houseFill.className = 'fill';
+    this.houseLabel = document.createElement('div');
+    this.houseLabel.className = 'label';
+    this.houseBar.appendChild(this.houseFill);
+    this.houseBar.appendChild(this.houseLabel);
+    document.body.appendChild(this.houseBar);
   }
 
   startNight() {
@@ -129,6 +143,21 @@ export class Rabbit {
     this.damage(amount);
   }
 
+  damageHouse() {
+    if (this.houseHealth <= 0) return;
+    this.houseHealth = 0;
+    this.scene.remove(this.house);
+    this.houseBar.style.display = 'none';
+    this.houseDestroyedTime = performance.now();
+  }
+
+  repairHouse() {
+    this.houseHealth = this.houseMaxHealth;
+    this.scene.add(this.house);
+    this.houseBar.style.display = 'block';
+    this.houseDestroyedTime = null;
+  }
+
   kick() {
     if (this.type === 3 && this.isDragging) {
       this.isDragging = false;
@@ -139,7 +168,11 @@ export class Rabbit {
   update(dt, isNight, camera) {
     if (isNight) this.startNight(); else this.endNight();
     if (!this.visible) {
+      if (this.houseHealth <= 0 && this.houseDestroyedTime && performance.now() - this.houseDestroyedTime > 3000) {
+        this.repairHouse();
+      }
       this.updateHealthBar(camera);
+      this.updateHouseHealthBar(camera);
       return;
     }
 
@@ -181,7 +214,11 @@ export class Rabbit {
       if (dist >= 3) this.trapped = false;
     }
 
+    if (this.houseHealth <= 0 && this.houseDestroyedTime && performance.now() - this.houseDestroyedTime > 3000) {
+      this.repairHouse();
+    }
     this.updateHealthBar(camera);
+    this.updateHouseHealthBar(camera);
   }
 
   updateHealthBar(camera) {
@@ -191,12 +228,39 @@ export class Rabbit {
     const pos = this.mesh.position.clone();
     pos.y += 3;
     pos.project(camera);
-    const x = (pos.x * 0.5 + 0.5) * innerWidth;
-    const y = (-pos.y * 0.5 + 0.5) * innerHeight;
-    this.healthBar.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+    if (pos.z < 1) {
+      const x = (pos.x * 0.5 + 0.5) * innerWidth;
+      const y = (-pos.y * 0.5 + 0.5) * innerHeight;
+      this.healthBar.style.left = `${x}px`;
+      this.healthBar.style.top = `${y}px`;
+    } else {
+      this.healthBar.style.display = 'none';
+      return;
+    }
     const pct = this.health / this.maxHealth;
     this.healthFill.style.width = `${pct * 100}%`;
     this.healthLabel.textContent = Math.round(this.health);
+  }
+
+  updateHouseHealthBar(camera) {
+    const disp = this.houseHealth > 0;
+    this.houseBar.style.display = disp ? 'block' : 'none';
+    if (!disp) return;
+    const pos = this.house.position.clone();
+    pos.y += 3;
+    pos.project(camera);
+    if (pos.z < 1) {
+      const x = (pos.x * 0.5 + 0.5) * innerWidth;
+      const y = (-pos.y * 0.5 + 0.5) * innerHeight;
+      this.houseBar.style.left = `${x}px`;
+      this.houseBar.style.top = `${y}px`;
+    } else {
+      this.houseBar.style.display = 'none';
+      return;
+    }
+    const pct = this.houseHealth / this.houseMaxHealth;
+    this.houseFill.style.width = `${pct * 100}%`;
+    this.houseLabel.textContent = Math.round(this.houseHealth);
   }
 }
 
