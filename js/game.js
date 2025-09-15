@@ -182,9 +182,11 @@ for (const d of dispensers) {
 }
 
 function shootBullet(){
-  // Muzzle position slightly in front/right of player chest, aligned with aim
+  // Muzzle position slightly in front/right of player chest.
+  // Align its horizontal rotation with the camera so bullets follow the crosshair left/right.
   const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
-  const muzzleWorld = player.localToWorld(muzzle.clone());
+  const yawOnly = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, camera.rotation.y, 0));
+  const muzzleWorld = player.position.clone().add(muzzle.clone().applyQuaternion(yawOnly));
 
   // Raycast from the camera through the screen center (crosshair)
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
