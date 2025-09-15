@@ -46,6 +46,10 @@ export class Rabbit {
     this.isDragging = false;
     this.runAway = false;
 
+    this.maxHealth = 500;
+    this.health = this.maxHealth;
+    this.dead = false;
+
     this.home = new THREE.Vector3(30, 0, -30);
     this.cave = this.createCave();
     scene.add(this.cave);
@@ -63,6 +67,7 @@ export class Rabbit {
   }
 
   startNight() {
+    if (this.dead) return;
     if (!this.visible) {
       this.scene.add(this.mesh);
       this.visible = true;
@@ -117,5 +122,15 @@ export class Rabbit {
     if (!this.isDragging) return;
     this.isDragging = false;
     this.runAway = true;
+  }
+
+  takeDamage(amount) {
+    if (this.dead) return;
+    this.health -= amount;
+    if (this.health <= 0) {
+      this.health = 0;
+      this.dead = true;
+      this.endNight();
+    }
   }
 }
