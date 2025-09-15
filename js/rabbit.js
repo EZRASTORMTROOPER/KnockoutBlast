@@ -85,6 +85,14 @@ export class Rabbit {
 
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
 
+    // face sprite shown during attacks
+    const tex = new THREE.TextureLoader().load(`assets/faces/face${type}.png`);
+    this.face = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    this.face.position.set(0, 2.1, 0.8);
+    this.face.scale.set(1, 1, 1);
+    this.face.visible = false;
+    this.mesh.add(this.face);
+
     // health bar UI
     this.healthBar = document.createElement('div');
     this.healthBar.className = 'rabbit-health';
@@ -139,9 +147,12 @@ export class Rabbit {
   update(dt, isNight, camera) {
     if (isNight) this.startNight(); else this.endNight();
     if (!this.visible) {
+      this.face.visible = false;
       this.updateHealthBar(camera);
       return;
     }
+
+    let attacking = false;
 
     if (this.type === 3) {
       // Troll rabbit behaviour
@@ -158,6 +169,7 @@ export class Rabbit {
         const dir = this.home.clone().sub(this.player.position).setY(0).normalize();
         this.player.position.addScaledVector(dir, 2 * dt);
         this.mesh.position.copy(this.player.position);
+        attacking = true;
       } else {
         const dir = this.player.position.clone().sub(this.mesh.position);
         dir.y = 0;
@@ -168,6 +180,7 @@ export class Rabbit {
         }
         if (dist < 1) {
           this.isDragging = true;
+          attacking = true;
           if (this.onAttack) this.onAttack();
         }
       }
@@ -179,7 +192,13 @@ export class Rabbit {
         this.onTrap();
       }
       if (dist >= 3) this.trapped = false;
+      attacking = this.trapped;
+    } else if (this.type === 2) {
+      const dist = this.player.position.distanceTo(this.mesh.position);
+      if (dist < 2) attacking = true;
     }
+
+    this.face.visible = attacking;
 
     this.updateHealthBar(camera);
   }
