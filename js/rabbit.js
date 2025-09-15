@@ -88,6 +88,7 @@ export class Rabbit {
     const loader = new THREE.TextureLoader();
     const tex = loader.load(`../assets/faces/face${type}.png`);
     const headRadius = 0.8 * this.mesh.scale.x;
+    this.baseHeadRadius = headRadius;
     const faceSize = headRadius * 2;
     this.face = new THREE.Mesh(
       new THREE.PlaneGeometry(faceSize, faceSize),
@@ -140,6 +141,15 @@ export class Rabbit {
   hitByBall(amount = 10) {
     if (this.immune) { this.immune = false; return; }
     this.damage(amount);
+  }
+
+  setMaxHealth(max) {
+    this.maxHealth = max;
+    this.health = Math.min(this.health, max);
+  }
+
+  updateFaceOffset(offset) {
+    this.headRadius = this.baseHeadRadius + offset;
   }
 
   kick() {
