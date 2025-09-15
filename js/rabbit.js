@@ -96,7 +96,8 @@ export class Rabbit {
     this.scene.add(this.face);
     this.face.visible = false;
     this.headOffset = new THREE.Vector3(0, 2.1, 0);
-    this.headRadius = headRadius + 0.01;
+    this.headRadius = headRadius;
+    this.faceForward = 0.05;
 
     // health bar UI
     this.healthBar = document.createElement('div');
@@ -199,7 +200,8 @@ export class Rabbit {
       if (this.face.visible) {
         const headPos = this.mesh.localToWorld(this.headOffset.clone());
         const dir = this.player.position.clone().sub(headPos).normalize();
-        this.face.position.copy(headPos.clone().addScaledVector(dir, this.headRadius));
+        const dist = this.headRadius + this.faceForward;
+        this.face.position.copy(headPos.clone().addScaledVector(dir, dist));
         this.face.lookAt(this.player.position);
       }
     }
