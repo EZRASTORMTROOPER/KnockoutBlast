@@ -1,6 +1,7 @@
 import { controls, initControls } from "./controls.js";
 import { DayNightCycle } from './dayNight.js';
 import { Rabbit } from './rabbit.js';
+import { settings, initSettings, maxBalls, bulletDamage, ballDamage, getRabbitHealth } from './settings.js';
 import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
 export function startGame() {
 
@@ -12,52 +13,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 app.appendChild(renderer.domElement);
 
-// UI controls
-const ballSlider = document.getElementById('ballSlider');
-const ballCountLabel = document.getElementById('ballCountLabel');
-const settings = document.getElementById('settings');
-const volumeSlider = document.getElementById('volumeSlider');
-const volumeLabel = document.getElementById('volumeLabel');
-const faceSlider = document.getElementById('faceSlider');
-const faceLabel = document.getElementById('faceLabel');
-const rabbitHealthSlider = document.getElementById('rabbitHealthSlider');
-const rabbitHealthLabel = document.getElementById('rabbitHealthLabel');
-const bulletDamageSlider = document.getElementById('bulletDamageSlider');
-const bulletDamageLabel = document.getElementById('bulletDamageLabel');
-const ballDamageSlider = document.getElementById('ballDamageSlider');
-const ballDamageLabel = document.getElementById('ballDamageLabel');
-
-let maxBalls = parseInt(ballSlider.value);
-ballSlider.addEventListener('input', () => {
-  ballCountLabel.textContent = ballSlider.value;
-  maxBalls = parseInt(ballSlider.value);
-});
-
-let bulletDamage = parseInt(bulletDamageSlider.value);
-bulletDamageSlider.addEventListener('input', () => {
-  bulletDamage = parseInt(bulletDamageSlider.value);
-  bulletDamageLabel.textContent = bulletDamage;
-});
-
-let ballDamage = parseInt(ballDamageSlider.value);
-ballDamageSlider.addEventListener('input', () => {
-  ballDamage = parseInt(ballDamageSlider.value);
-  ballDamageLabel.textContent = ballDamage;
-});
-
-Rabbit.faceOffset = parseFloat(faceSlider.value);
-faceSlider.addEventListener('input', () => {
-  const v = parseFloat(faceSlider.value);
-  faceLabel.textContent = v.toFixed(2);
-  Rabbit.faceOffset = v;
-});
-
 let rabbits = [];
-rabbitHealthSlider.addEventListener('input', () => {
-  const v = parseInt(rabbitHealthSlider.value);
-  rabbitHealthLabel.textContent = v;
-  for (const r of rabbits) { r.maxHealth = v; r.health = v; }
-});
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7fb0ff);
@@ -76,12 +32,7 @@ scene.fog = new THREE.Fog(0x7fb0ff, 20, 140);
     nightSound.setLoop(true);
     nightSound.setVolume(1.0);
   });
-  listener.setMasterVolume(parseFloat(volumeSlider.value));
-  volumeSlider.addEventListener('input', () => {
-    const v = parseFloat(volumeSlider.value);
-    volumeLabel.textContent = v.toFixed(2);
-    listener.setMasterVolume(v);
-  });
+  initSettings(() => rabbits, listener);
 
 // --- Lights ---
 const hemi = new THREE.HemisphereLight(0xffffff, 0x335533, 0.6);
@@ -202,7 +153,7 @@ function updateHealthUI() {
       onAttack: () => { playerHealth *= 0.5; updateHealthUI(); }
     }, listener, audioLoader)
   ];
-  const rabbitMax = parseInt(rabbitHealthSlider.value);
+  const rabbitMax = getRabbitHealth();
   for (const r of rabbits) { r.maxHealth = rabbitMax; r.health = rabbitMax; }
 const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;

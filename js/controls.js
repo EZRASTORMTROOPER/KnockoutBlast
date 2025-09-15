@@ -7,6 +7,8 @@ export const controls = {
 
 export function initControls(domElement, shoot, onPointerLockChange) {
   const hint = document.getElementById('hint');
+  const settings = document.getElementById('settings');
+  const resumeButton = document.getElementById('resumeButton');
   addEventListener('keydown', e => {
     if (e.code === 'Escape' && controls.pointerLocked) {
       document.exitPointerLock();
@@ -20,8 +22,15 @@ export function initControls(domElement, shoot, onPointerLockChange) {
 
   addEventListener('mousedown', e => {
     if (!controls.pointerLocked) {
-      domElement.requestPointerLock();
-      e.preventDefault();
+      if (!settings.classList.contains('hidden')) {
+        if (e.target === resumeButton) {
+          domElement.requestPointerLock();
+          e.preventDefault();
+        }
+      } else {
+        domElement.requestPointerLock();
+        e.preventDefault();
+      }
     } else if (e.button === 0) {
       shoot();
     }
