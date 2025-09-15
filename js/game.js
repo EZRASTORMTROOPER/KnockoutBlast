@@ -12,6 +12,8 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 app.appendChild(renderer.domElement);
 
+const crosshair = document.querySelector('.crosshair');
+
 // UI controls
 const ballSlider = document.getElementById('ballSlider');
 const ballCountLabel = document.getElementById('ballCountLabel');
@@ -151,7 +153,11 @@ const dayNight = new DayNightCycle(scene, sun, hemi);
 controls.trappedUntil = 0;
 
 // Camera offset relative to player in local space (over‑the‑shoulder)
-const camOffset = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
+const camOffsetNormal = new THREE.Vector3(1.6, 1.8, 3.8); // right shoulder & back
+const camOffsetAim = new THREE.Vector3(0.4, 1.6, 2.0); // closer when aiming
+const camOffset = camOffsetNormal.clone();
+const normalFov = 70;
+const aimFov = 45;
 
 // --- Bullets ---
 const bullets = [];
@@ -231,113 +237,118 @@ initControls(renderer.domElement, handleClick);
 let velY = 0; // vertical velocity for jumping/gravity
 const GRAV = 22;
 
-function update(dt){
-  dayNight.update(dt);
-  const { yaw, pitch, keys } = controls;
-  const now = performance.now();
-  // Move on XZ using yaw (aim direction)
-  const speed = (keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6;
-  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-  const right   = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-  let move = new THREE.Vector3();
-  if (!controls.trappedUntil || now > controls.trappedUntil) {
-    if (keys.has('KeyW')) move.add(forward);
-    if (keys.has('KeyS')) move.add(forward.clone().multiplyScalar(-1));
-    if (keys.has('KeyD')) move.add(right);
-    if (keys.has('KeyA')) move.add(right.clone().multiplyScalar(-1));
-    if (move.lengthSq()>0) move.normalize().multiplyScalar(speed*dt);
-  }
+  function update(dt){
+    dayNight.update(dt);
+    const { yaw, pitch, keys, aim } = controls;
+    const now = performance.now();
+    crosshair.classList.toggle('aim', aim);
 
-  player.position.add(move);
+    // Move on XZ using yaw (aim direction)
+    const speed = aim ? 4 : ((keys.has('ShiftLeft')||keys.has('ShiftRight')) ? 10 : 6);
+    const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+    const right   = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    let move = new THREE.Vector3();
+    if (!controls.trappedUntil || now > controls.trappedUntil) {
+      if (keys.has('KeyW')) move.add(forward);
+      if (keys.has('KeyS')) move.add(forward.clone().multiplyScalar(-1));
+      if (keys.has('KeyD')) move.add(right);
+      if (keys.has('KeyA')) move.add(right.clone().multiplyScalar(-1));
+      if (move.lengthSq()>0) move.normalize().multiplyScalar(speed*dt);
+    }
 
-  // Jump
-  const onGround = player.position.y <= 0.0 + 0.001;
-  if (onGround) { player.position.y = 0; velY = 0; }
-  if (onGround && keys.has('Space')) velY = 7.5;
-  velY -= GRAV * dt;
-  player.position.y += velY * dt;
-  if (player.position.y < 0) { player.position.y = 0; velY = 0; }
+    player.position.add(move);
 
-  // Rotate player body to face yaw (torso only for a simple look)
-  player.rotation.y = yaw;
+    // Jump
+    const onGround = player.position.y <= 0.0 + 0.001;
+    if (onGround) { player.position.y = 0; velY = 0; }
+    if (onGround && keys.has('Space')) velY = 7.5;
+    velY -= GRAV * dt;
+    player.position.y += velY * dt;
+    if (player.position.y < 0) { player.position.y = 0; velY = 0; }
 
-  // Aim the right arm toward where camera looks (rough)
-  armR.rotation.x = pitch * 0.75;
+    // Rotate player body to face yaw (torso only for a simple look)
+    player.rotation.y = yaw;
 
-  // Update camera to orbit around player
+    // Aim the right arm toward where camera looks (rough)
+    armR.rotation.x = pitch * 0.75;
+
+    // Update camera to orbit around player
+    camOffset.lerp(aim ? camOffsetAim : camOffsetNormal, 0.1);
     const camRot = new THREE.Euler(pitch, yaw, 0, 'YXZ');
     const offsetWorld = camOffset.clone().applyEuler(camRot);
     const camPos = player.position.clone().add(offsetWorld);
     camera.position.lerp(camPos, 0.85);
     const camQuat = new THREE.Quaternion().setFromEuler(camRot);
     camera.quaternion.slerp(camQuat, 0.85);
+    camera.fov += ((aim ? aimFov : normalFov) - camera.fov) * 0.1;
+    camera.updateProjectionMatrix();
 
-  // Spawn balls from dispensers
-  for (const d of dispensers) {
-    if (totalDispensed >= maxBalls) break;
-    if (now - d.last >= 1000) {
-      const mesh = new THREE.Mesh(ballGeo, ballMat);
-      mesh.position.copy(d.pos).add(new THREE.Vector3(0, BALL_RADIUS, 0));
-      mesh.castShadow = true; mesh.receiveShadow = true;
-      scene.add(mesh);
-      const dir = new THREE.Vector3(Math.random() - 0.5, 0.5, Math.random() - 0.5).normalize();
-      balls.push({ mesh, vel: dir.multiplyScalar(6) });
-      d.last = now;
-      totalDispensed++;
+    // Spawn balls from dispensers
+    for (const d of dispensers) {
+      if (totalDispensed >= maxBalls) break;
+      if (now - d.last >= 1000) {
+        const mesh = new THREE.Mesh(ballGeo, ballMat);
+        mesh.position.copy(d.pos).add(new THREE.Vector3(0, BALL_RADIUS, 0));
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        scene.add(mesh);
+        const dir = new THREE.Vector3(Math.random() - 0.5, 0.5, Math.random() - 0.5).normalize();
+        balls.push({ mesh, vel: dir.multiplyScalar(6) });
+        d.last = now;
+        totalDispensed++;
+      }
     }
-  }
 
-  // Update balls
-  for (let i = balls.length - 1; i >= 0; i--) {
-    const b = balls[i];
-    b.vel.y -= GRAV * dt;
-    b.mesh.position.addScaledVector(b.vel, dt);
-    if (b.mesh.position.y < BALL_RADIUS) {
-      b.mesh.position.y = BALL_RADIUS;
-      b.vel.y *= -0.6;
-    }
-    if (b.mesh.position.length() > groundSize) {
-      scene.remove(b.mesh); balls.splice(i,1);
-    }
-    // collision with rabbits
-    for (const r of rabbits) {
-      if (!r.visible) continue;
-      const radius = BALL_RADIUS * b.mesh.scale.x;
-      if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
-        r.hitByBall();
+    // Update balls
+    for (let i = balls.length - 1; i >= 0; i--) {
+      const b = balls[i];
+      b.vel.y -= GRAV * dt;
+      b.mesh.position.addScaledVector(b.vel, dt);
+      if (b.mesh.position.y < BALL_RADIUS) {
+        b.mesh.position.y = BALL_RADIUS;
+        b.vel.y *= -0.6;
+      }
+      if (b.mesh.position.length() > groundSize) {
         scene.remove(b.mesh); balls.splice(i,1);
-        break;
       }
-    }
-  }
-
-  // Bullets update and collision with balls
-  for (let i=bullets.length-1;i>=0;i--){
-    const b = bullets[i];
-    b.mesh.position.addScaledVector(b.vel, dt);
-    const life = (now - b.born) / 3000;
-    b.mesh.scale.setScalar(Math.max(0, 1 - life));
-    if (life > 1 || b.mesh.position.length() > groundSize) {
-      scene.remove(b.mesh); bullets.splice(i,1); continue;
-    }
-    for (let j = balls.length - 1; j >= 0; j--) {
-      const ball = balls[j];
-      const radius = BALL_RADIUS * ball.mesh.scale.x;
-      if (b.mesh.position.distanceTo(ball.mesh.position) < radius + 0.1) {
-        ball.mesh.scale.multiplyScalar(0.7);
-        scene.remove(b.mesh); bullets.splice(i,1);
-        if (ball.mesh.scale.x < 0.2) {
-          scene.remove(ball.mesh); balls.splice(j,1);
+      // collision with rabbits
+      for (const r of rabbits) {
+        if (!r.visible) continue;
+        const radius = BALL_RADIUS * b.mesh.scale.x;
+        if (r.mesh.position.distanceTo(b.mesh.position) < radius + 1) {
+          r.hitByBall();
+          scene.remove(b.mesh); balls.splice(i,1);
+          break;
         }
-        break;
       }
     }
-  }
 
-  for (const r of rabbits) {
-    r.update(dt, dayNight.isNight, camera);
+    // Bullets update and collision with balls
+    for (let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      b.mesh.position.addScaledVector(b.vel, dt);
+      const life = (now - b.born) / 3000;
+      b.mesh.scale.setScalar(Math.max(0, 1 - life));
+      if (life > 1 || b.mesh.position.length() > groundSize) {
+        scene.remove(b.mesh); bullets.splice(i,1); continue;
+      }
+      for (let j = balls.length - 1; j >= 0; j--) {
+        const ball = balls[j];
+        const radius = BALL_RADIUS * ball.mesh.scale.x;
+        if (b.mesh.position.distanceTo(ball.mesh.position) < radius + 0.1) {
+          ball.mesh.scale.multiplyScalar(0.7);
+          scene.remove(b.mesh); bullets.splice(i,1);
+          if (ball.mesh.scale.x < 0.2) {
+            scene.remove(ball.mesh); balls.splice(j,1);
+          }
+          break;
+        }
+      }
+    }
+
+    for (const r of rabbits) {
+      r.update(dt, dayNight.isNight, camera);
+    }
   }
-}
 
 // --- Animate ---
 let last = performance.now();
