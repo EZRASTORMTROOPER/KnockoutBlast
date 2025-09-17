@@ -192,8 +192,12 @@ function shootBullet(){
   const muzzle = new THREE.Vector3(0.4, 1.3, -0.2);
   const muzzleWorld = player.localToWorld(muzzle.clone());
 
-  // Raycast from the camera through the screen center (crosshair)
-  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  // Raycast using the camera's yaw so horizontal aim matches the crosshair
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  camDir.y = 0; // ignore vertical component
+  camDir.normalize();
+  raycaster.set(muzzleWorld, camDir);
   const hits = raycaster.intersectObjects(scene.children, true);
   let hitPoint;
   for (const h of hits) {
@@ -207,11 +211,11 @@ function shootBullet(){
     if (!skip) { hitPoint = h.point; break; }
   }
   if (!hitPoint) {
-    // No hit: use a distant point straight ahead
-    hitPoint = raycaster.ray.at(100, new THREE.Vector3());
+    // No hit: project far ahead horizontally
+    hitPoint = muzzleWorld.clone().add(camDir.multiplyScalar(100));
   }
 
-  // Aim from the muzzle toward the raycast point so bullets pass through the crosshair
+  // Aim from the muzzle toward the raycast point for side-to-side alignment
   const dir = hitPoint.clone().sub(muzzleWorld).normalize();
 
   const mesh = new THREE.Mesh(bulletGeo, bulletMat);
