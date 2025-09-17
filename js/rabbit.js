@@ -72,6 +72,15 @@ function createCave() {
     this.immune = type === 2; // survives one hit
     this.isDragging = false; // for type 3
     this.runAway = false; // for type 3
+    this.trapped = false;
+
+    this.walkSpeed = type === 1 ? 2.8 : type === 2 ? 2.4 : 0;
+    this.chaseSpeed = type === 1 ? 4.2 : type === 2 ? 3.2 : 0;
+    this.chaseRange = type === 1 ? 18 : type === 2 ? 22 : 0;
+    this.wanderRadius = type === 1 ? 12 : type === 2 ? 18 : 0;
+    this.wanderTarget = new THREE.Vector3();
+    this.nextWanderSwitch = 0;
+    this.circleDir = Math.random() < 0.5 ? 1 : -1;
 
     // set homes
     if (type === 1) this.home = new THREE.Vector3(30, 0, 30);
@@ -85,6 +94,7 @@ function createCave() {
     scene.add(this.house);
 
     this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
+    this.wanderTarget.copy(this.mesh.position);
 
     const loader = new THREE.TextureLoader();
     const tex = loader.load(`../assets/faces/face${type}.png`);
@@ -132,11 +142,14 @@ function createCave() {
   endNight() {
     this.isDragging = false;
     this.runAway = false;
+    this.trapped = false;
     if (this.visible) {
       this.scene.remove(this.mesh);
       this.visible = false;
       this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
     }
+    this.wanderTarget.copy(this.mesh.position);
+    this.nextWanderSwitch = 0;
     if (this.screamSound.isPlaying) this.screamSound.stop();
   }
 
@@ -180,18 +193,18 @@ function createCave() {
         } else {
           this.endNight();
         }
-        } else if (this.isDragging) {
-          const dir = this.home.clone().sub(this.player.position).setY(0).normalize();
-          this.player.position.addScaledVector(dir, 2 * dt);
-          this.mesh.position.copy(this.player.position);
-          if (isNight) {
-            const now = performance.now();
-            if (!this.screamSound.isPlaying && this.screamSound.buffer && now - this.lastScream > 3000) {
-              this.screamSound.play();
-              this.lastScream = now;
-            }
+      } else if (this.isDragging) {
+        const dir = this.home.clone().sub(this.player.position).setY(0).normalize();
+        this.player.position.addScaledVector(dir, 2 * dt);
+        this.mesh.position.copy(this.player.position);
+        if (isNight) {
+          const now = performance.now();
+          if (!this.screamSound.isPlaying && this.screamSound.buffer && now - this.lastScream > 3000) {
+            this.screamSound.play();
+            this.lastScream = now;
           }
-        } else {
+        }
+      } else {
         const dir = this.player.position.clone().sub(this.mesh.position);
         dir.y = 0;
         const dist = dir.length();
@@ -207,11 +220,33 @@ function createCave() {
     } else if (this.type === 1) {
       // screaming trapper
       const dist = this.player.position.distanceTo(this.mesh.position);
+      if (dist < this.chaseRange) {
+        this.moveTowards(this.player.position, this.chaseSpeed, dt);
+      } else {
+        this.updateWander(dt);
+      }
       if (dist < 3 && this.onTrap && !this.trapped) {
         this.trapped = true;
         this.onTrap();
       }
       if (dist >= 3) this.trapped = false;
+    } else if (this.type === 2) {
+      // berserker rabbit circles the player when close
+      const dist = this.player.position.distanceTo(this.mesh.position);
+      if (dist < this.chaseRange) {
+        const toPlayer = this.player.position.clone().sub(this.mesh.position);
+        toPlayer.y = 0;
+        const len = toPlayer.length();
+        if (len > 0.001) {
+          const toPlayerDir = toPlayer.clone().divideScalar(len);
+          const tangent = new THREE.Vector3(-toPlayerDir.z, 0, toPlayerDir.x).multiplyScalar(this.circleDir);
+          const dir = toPlayerDir.clone().multiplyScalar(0.7).addScaledVector(tangent, 0.3).normalize();
+          this.mesh.position.addScaledVector(dir, this.chaseSpeed * dt);
+          this.mesh.position.y = 0;
+        }
+      } else {
+        this.updateWander(dt);
+      }
     }
 
     if (this.face) {
@@ -240,6 +275,40 @@ function createCave() {
     const pct = this.health / this.maxHealth;
     this.healthFill.style.width = `${pct * 100}%`;
     this.healthLabel.textContent = Math.round(this.health);
+  }
+
+  updateWander(dt) {
+    const now = performance.now();
+    if (!this.wanderTarget || now >= this.nextWanderSwitch || this.mesh.position.distanceTo(this.wanderTarget) < 0.8) {
+      this.pickWanderTarget();
+    }
+    this.moveTowards(this.wanderTarget, this.walkSpeed, dt);
+  }
+
+  pickWanderTarget(center = this.home, radius = this.wanderRadius) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = radius > 0 ? Math.random() * radius : 0;
+    const offset = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+    this.wanderTarget.copy(center).add(offset);
+    this.wanderTarget.y = 0;
+    this.nextWanderSwitch = performance.now() + THREE.MathUtils.randFloat(2000, 5000);
+  }
+
+  moveTowards(target, speed, dt) {
+    const dir = target.clone().sub(this.mesh.position);
+    dir.y = 0;
+    const dist = dir.length();
+    if (dist < 1e-3) return dist;
+    const step = speed * dt;
+    if (step >= dist) {
+      this.mesh.position.copy(target);
+      this.mesh.position.y = 0;
+      return 0;
+    }
+    dir.normalize();
+    this.mesh.position.addScaledVector(dir, step);
+    this.mesh.position.y = 0;
+    return dist - step;
   }
 }
 
