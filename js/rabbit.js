@@ -26,7 +26,8 @@ function makeRabbit() {
   const eyeR = eyeL.clone(); eyeR.position.x = 0.2;
 
   g.add(body, head, earL, earR, eyeL, eyeR);
-  g.scale.set(2.2, 2.2, 2.2);
+  const scaleFactor = 2.2 * 0.2; // shrink rabbits to 20% of their previous size
+  g.scale.set(scaleFactor, scaleFactor, scaleFactor);
   return g;
 }
 
