@@ -229,8 +229,20 @@ function createCave() {
 
   updateHealthBar(camera) {
     const disp = this.visible && this.health > 0;
-    this.healthBar.style.display = disp ? 'block' : 'none';
-    if (!disp) return;
+    if (!disp) {
+      this.healthBar.style.display = 'none';
+      return;
+    }
+
+    const cameraDir = new THREE.Vector3();
+    camera.getWorldDirection(cameraDir);
+    const toRabbit = this.mesh.position.clone().sub(camera.position);
+    if (toRabbit.dot(cameraDir) <= 0) {
+      this.healthBar.style.display = 'none';
+      return;
+    }
+
+    this.healthBar.style.display = 'block';
     const pos = this.mesh.position.clone();
     pos.y += 3;
     pos.project(camera);
