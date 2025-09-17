@@ -72,6 +72,8 @@ function createCave() {
     this.immune = type === 2; // survives one hit
     this.isDragging = false; // for type 3
     this.runAway = false; // for type 3
+    this.wanderTarget = null;
+    this.wanderTimer = 0;
 
     // set homes
     if (type === 1) this.home = new THREE.Vector3(30, 0, 30);
@@ -132,6 +134,8 @@ function createCave() {
   endNight() {
     this.isDragging = false;
     this.runAway = false;
+    this.wanderTarget = null;
+    this.wanderTimer = 0;
     if (this.visible) {
       this.scene.remove(this.mesh);
       this.visible = false;
@@ -205,6 +209,7 @@ function createCave() {
         }
       }
     } else if (this.type === 1) {
+      this.updateWander(dt, 1.6, 10);
       // screaming trapper
       const dist = this.player.position.distanceTo(this.mesh.position);
       if (dist < 3 && this.onTrap && !this.trapped) {
@@ -212,6 +217,8 @@ function createCave() {
         this.onTrap();
       }
       if (dist >= 3) this.trapped = false;
+    } else if (this.type === 2) {
+      this.updateWander(dt, 1.2, 8);
     }
 
     if (this.face) {
@@ -259,6 +266,28 @@ function createCave() {
     const pct = this.health / this.maxHealth;
     this.healthFill.style.width = `${pct * 100}%`;
     this.healthLabel.textContent = Math.round(this.health);
+  }
+
+  updateWander(dt, speed, radius) {
+    this.wanderTimer -= dt;
+    if (!this.wanderTarget || this.wanderTimer <= 0) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * radius;
+      this.wanderTarget = this.home.clone().add(new THREE.Vector3(Math.cos(angle) * distance, 0, Math.sin(angle) * distance));
+      this.wanderTimer = 4 + Math.random() * 4;
+    }
+
+    const dir = this.wanderTarget.clone().sub(this.mesh.position).setY(0);
+    const dist = dir.length();
+    if (dist < 0.2) {
+      this.wanderTimer = 0;
+      return;
+    }
+    dir.normalize();
+    const step = speed * dt;
+    const move = Math.min(step, dist);
+    this.mesh.position.addScaledVector(dir, move);
+    this.mesh.lookAt(this.mesh.position.clone().add(dir));
   }
 }
 
