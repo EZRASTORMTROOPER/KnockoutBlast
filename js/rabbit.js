@@ -72,6 +72,12 @@ function createCave() {
     this.immune = type === 2; // survives one hit
     this.isDragging = false; // for type 3
     this.runAway = false; // for type 3
+    this.trapped = false;
+
+    this.wanderTarget = this.mesh.position.clone();
+    this.nextWanderTime = 0;
+    this.wanderSpeed = type === 1 ? 2.6 : type === 2 ? 2.2 : 0;
+    this.wanderRadius = type === 1 ? 10 : type === 2 ? 12 : 0;
 
     // set homes
     if (type === 1) this.home = new THREE.Vector3(30, 0, 30);
@@ -126,18 +132,23 @@ function createCave() {
     if (!this.visible) {
       this.scene.add(this.mesh);
       this.visible = true;
+      this.wanderTarget.copy(this.mesh.position);
+      this.nextWanderTime = 0;
     }
   }
 
   endNight() {
     this.isDragging = false;
     this.runAway = false;
+    this.trapped = false;
     if (this.visible) {
       this.scene.remove(this.mesh);
       this.visible = false;
       this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
     }
     if (this.screamSound.isPlaying) this.screamSound.stop();
+    this.wanderTarget.copy(this.mesh.position);
+    this.nextWanderTime = 0;
   }
 
   damage(amount) {
@@ -206,12 +217,19 @@ function createCave() {
       }
     } else if (this.type === 1) {
       // screaming trapper
+      this.updateWander(dt, this.home, this.wanderRadius, this.wanderSpeed);
       const dist = this.player.position.distanceTo(this.mesh.position);
       if (dist < 3 && this.onTrap && !this.trapped) {
         this.trapped = true;
         this.onTrap();
       }
       if (dist >= 3) this.trapped = false;
+    } else if (this.type === 2) {
+      // curious survivor rabbit roams wider and is drawn toward the player when nearby
+      const playerDistFromHome = this.player.position.distanceTo(this.home);
+      const biasPosition = playerDistFromHome < 18 ? this.player.position : null;
+      const biasStrength = playerDistFromHome < 18 ? 0.35 : 0.2;
+      this.updateWander(dt, this.home, this.wanderRadius, this.wanderSpeed, biasPosition, biasStrength);
     }
 
     if (this.face) {
@@ -259,6 +277,38 @@ function createCave() {
     const pct = this.health / this.maxHealth;
     this.healthFill.style.width = `${pct * 100}%`;
     this.healthLabel.textContent = Math.round(this.health);
+  }
+
+  updateWander(dt, center, radius, speed, biasPosition = null, biasStrength = 0.25) {
+    if (speed <= 0 || radius <= 0) return;
+    const now = performance.now();
+    const needsNewTarget =
+      now >= this.nextWanderTime ||
+      this.mesh.position.distanceToSquared(this.wanderTarget) < 0.36;
+    if (needsNewTarget) {
+      this.pickWanderTarget(center, radius, biasPosition, biasStrength);
+    }
+
+    const dir = this.wanderTarget.clone().sub(this.mesh.position);
+    dir.y = 0;
+    const len = dir.length();
+    if (len > 0.001) {
+      dir.normalize();
+      const step = Math.min(len, speed * dt);
+      this.mesh.position.addScaledVector(dir, step);
+    }
+  }
+
+  pickWanderTarget(center, radius, biasPosition = null, biasStrength = 0.25) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = radius * (0.35 + Math.random() * 0.65);
+    const offset = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+    const target = center.clone().add(offset);
+    if (biasPosition) {
+      target.lerp(biasPosition, THREE.MathUtils.clamp(biasStrength, 0, 1));
+    }
+    this.wanderTarget.copy(target);
+    this.nextWanderTime = performance.now() + 1500 + Math.random() * 2000;
   }
 }
 
