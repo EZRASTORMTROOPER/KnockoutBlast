@@ -72,6 +72,9 @@ function createCave() {
     this.immune = type === 2; // survives one hit
     this.isDragging = false; // for type 3
     this.runAway = false; // for type 3
+    this.baseSpeed = this.type === 1 ? 1.6 : this.type === 2 ? 2.3 : 2.0;
+    this.wanderTarget = null;
+    this.wanderPause = 0;
 
     // set homes
     if (type === 1) this.home = new THREE.Vector3(30, 0, 30);
@@ -137,6 +140,8 @@ function createCave() {
       this.visible = false;
       this.mesh.position.copy(this.home.clone().add(new THREE.Vector3(0, 0, 2)));
     }
+    this.wanderTarget = null;
+    this.wanderPause = 0;
     if (this.screamSound.isPlaying) this.screamSound.stop();
   }
 
@@ -197,14 +202,30 @@ function createCave() {
         const dist = dir.length();
         if (dist > 0.1) {
           dir.normalize();
-          this.mesh.position.addScaledVector(dir, 2 * dt);
+          this.mesh.position.addScaledVector(dir, this.baseSpeed * dt);
         }
         if (dist < 1) {
           this.isDragging = true;
           if (this.onAttack) this.onAttack();
         }
       }
-    } else if (this.type === 1) {
+    } else if (this.type === 1 || this.type === 2) {
+      if (this.type === 2) {
+        const dirToPlayer = this.player.position.clone().sub(this.mesh.position).setY(0);
+        const distToPlayer = dirToPlayer.length();
+        if (distToPlayer < 16) {
+          if (distToPlayer > 0.1) {
+            dirToPlayer.normalize();
+            const chaseBoost = distToPlayer < 6 ? 1.5 : 1;
+            this.mesh.position.addScaledVector(dirToPlayer, this.baseSpeed * chaseBoost * dt);
+          }
+        } else {
+          this.updateWander(dt);
+        }
+      } else {
+        this.updateWander(dt);
+      }
+
       // screaming trapper
       const dist = this.player.position.distanceTo(this.mesh.position);
       if (dist < 3 && this.onTrap && !this.trapped) {
@@ -225,6 +246,43 @@ function createCave() {
     }
 
     this.updateHealthBar(camera);
+  }
+
+  updateWander(dt) {
+    if (this.wanderPause > 0) {
+      this.wanderPause -= dt;
+      if (this.wanderPause <= 0) {
+        this.wanderPause = 0;
+        this.wanderTarget = null;
+      } else {
+        return;
+      }
+    }
+
+    if (!this.wanderTarget) {
+      this.wanderTarget = this.generateWanderTarget();
+    }
+
+    const dir = this.wanderTarget.clone().sub(this.mesh.position);
+    dir.y = 0;
+    const dist = dir.length();
+    if (dist < 0.25) {
+      this.wanderTarget = null;
+      this.wanderPause = 0.5 + Math.random() * 1.5;
+      return;
+    }
+
+    dir.normalize();
+    this.mesh.position.addScaledVector(dir, this.baseSpeed * 0.8 * dt);
+  }
+
+  generateWanderTarget() {
+    const radius = this.type === 2 ? 24 : 16;
+    const minRadius = 4;
+    const angle = Math.random() * Math.PI * 2;
+    const distance = minRadius + Math.random() * (radius - minRadius);
+    const offset = new THREE.Vector3(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+    return this.home.clone().add(offset);
   }
 
   updateHealthBar(camera) {
