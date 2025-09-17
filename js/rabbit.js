@@ -228,14 +228,33 @@ function createCave() {
   }
 
   updateHealthBar(camera) {
-    const disp = this.visible && this.health > 0;
-    this.healthBar.style.display = disp ? 'block' : 'none';
-    if (!disp) return;
-    const pos = this.mesh.position.clone();
-    pos.y += 3;
-    pos.project(camera);
-    const x = (pos.x * 0.5 + 0.5) * innerWidth;
-    const y = (-pos.y * 0.5 + 0.5) * innerHeight;
+    if (!(this.visible && this.health > 0)) {
+      this.healthBar.style.display = 'none';
+      return;
+    }
+
+    const worldPos = this.mesh.position.clone();
+    worldPos.y += 3;
+
+    const viewPos = worldPos.clone().applyMatrix4(camera.matrixWorldInverse);
+    if (viewPos.z >= 0) {
+      this.healthBar.style.display = 'none';
+      return;
+    }
+
+    const projected = worldPos.clone().project(camera);
+    if (
+      projected.x < -1 || projected.x > 1 ||
+      projected.y < -1 || projected.y > 1 ||
+      projected.z < -1 || projected.z > 1
+    ) {
+      this.healthBar.style.display = 'none';
+      return;
+    }
+
+    this.healthBar.style.display = 'block';
+    const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
     this.healthBar.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
     const pct = this.health / this.maxHealth;
     this.healthFill.style.width = `${pct * 100}%`;
