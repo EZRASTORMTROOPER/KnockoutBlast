@@ -26,7 +26,7 @@ function makeRabbit() {
   const eyeR = eyeL.clone(); eyeR.position.x = 0.2;
 
   g.add(body, head, earL, earR, eyeL, eyeR);
-  g.scale.set(2.2, 2.2, 2.2);
+  g.scale.set(0.44, 0.44, 0.44);
   return g;
 }
 
