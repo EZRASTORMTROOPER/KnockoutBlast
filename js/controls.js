@@ -1,44 +1,44 @@
 export const controls = {
-  yaw: 0,
-  pitch: 0,
   keys: new Set(),
-  pointerLocked: false,
-  allowPointerLock: true
+  lookDeltaX: 0,
+  lookDeltaY: 0,
+  flashlightToggleQueued: false,
 };
 
-export function initControls(domElement, shoot, onPointerLockChange) {
-  const hint = document.getElementById('hint');
-  addEventListener('keydown', e => {
-    if (e.code === 'Escape' && controls.pointerLocked) {
-      document.exitPointerLock();
-    } else {
-      controls.keys.add(e.code);
-    }
-  });
-  addEventListener('keyup', e => {
-    controls.keys.delete(e.code);
+export function initControls(canvas, onInstructionsToggle) {
+  canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+  addEventListener('keydown', (event) => {
+    controls.keys.add(event.code);
+    if (event.code === 'KeyF') controls.flashlightToggleQueued = true;
+    if (event.code === 'KeyH' && onInstructionsToggle) onInstructionsToggle();
   });
 
-  domElement.addEventListener('mousedown', e => {
-    if (controls.pointerLocked) {
-      if (e.button === 0) shoot();
-    } else if (controls.allowPointerLock) {
-      domElement.requestPointerLock();
-      e.preventDefault();
-    }
+  addEventListener('keyup', (event) => controls.keys.delete(event.code));
+
+  addEventListener('mousemove', (event) => {
+    controls.lookDeltaX += event.movementX;
+    controls.lookDeltaY += event.movementY;
   });
 
-  document.addEventListener('pointerlockchange', () => {
-    controls.pointerLocked = document.pointerLockElement === domElement;
-    hint.classList.toggle('hidden', controls.pointerLocked);
-    if (onPointerLockChange) onPointerLockChange(controls.pointerLocked);
+  addEventListener('mousedown', (event) => {
+    if (event.button === 2) controls.flashlightToggleQueued = true;
   });
 
-  addEventListener('mousemove', e => {
-    if (!controls.pointerLocked) return;
-    const sensitivity = 0.0027;
-    controls.yaw   -= e.movementX * sensitivity;
-    controls.pitch -= e.movementY * sensitivity;
-    controls.pitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, controls.pitch));
+  canvas.addEventListener('click', () => {
+    if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
   });
+}
+
+export function consumeLookDelta() {
+  const delta = { x: controls.lookDeltaX, y: controls.lookDeltaY };
+  controls.lookDeltaX = 0;
+  controls.lookDeltaY = 0;
+  return delta;
+}
+
+export function consumeFlashlightToggle() {
+  const queued = controls.flashlightToggleQueued;
+  controls.flashlightToggleQueued = false;
+  return queued;
 }
