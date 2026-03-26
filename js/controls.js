@@ -1,44 +1,24 @@
-export const controls = {
-  yaw: 0,
-  pitch: 0,
-  keys: new Set(),
-  pointerLocked: false,
-  allowPointerLock: true
-};
+export class Controls {
+  constructor() {
+    this.view = 'center';
+    this.flashlightHeld = false;
+    this.flashlightToggle = false;
 
-export function initControls(domElement, shoot, onPointerLockChange) {
-  const hint = document.getElementById('hint');
-  addEventListener('keydown', e => {
-    if (e.code === 'Escape' && controls.pointerLocked) {
-      document.exitPointerLock();
-    } else {
-      controls.keys.add(e.code);
-    }
-  });
-  addEventListener('keyup', e => {
-    controls.keys.delete(e.code);
-  });
+    addEventListener('keydown', (event) => {
+      if (event.code === 'KeyA' || event.code === 'ArrowLeft') this.view = 'left';
+      if (event.code === 'KeyD' || event.code === 'ArrowRight') this.view = 'right';
+      if (event.code === 'KeyF') this.flashlightToggle = !this.flashlightToggle;
+      if (event.code === 'Space') this.flashlightHeld = true;
+    });
 
-  domElement.addEventListener('mousedown', e => {
-    if (controls.pointerLocked) {
-      if (e.button === 0) shoot();
-    } else if (controls.allowPointerLock) {
-      domElement.requestPointerLock();
-      e.preventDefault();
-    }
-  });
+    addEventListener('keyup', (event) => {
+      if (event.code === 'Space') this.flashlightHeld = false;
+      if ((event.code === 'KeyA' || event.code === 'ArrowLeft') && this.view === 'left') this.view = 'center';
+      if ((event.code === 'KeyD' || event.code === 'ArrowRight') && this.view === 'right') this.view = 'center';
+    });
+  }
 
-  document.addEventListener('pointerlockchange', () => {
-    controls.pointerLocked = document.pointerLockElement === domElement;
-    hint.classList.toggle('hidden', controls.pointerLocked);
-    if (onPointerLockChange) onPointerLockChange(controls.pointerLocked);
-  });
-
-  addEventListener('mousemove', e => {
-    if (!controls.pointerLocked) return;
-    const sensitivity = 0.0027;
-    controls.yaw   -= e.movementX * sensitivity;
-    controls.pitch -= e.movementY * sensitivity;
-    controls.pitch = Math.max(-Math.PI/3, Math.min(Math.PI/3, controls.pitch));
-  });
+  isFlashlightOn() {
+    return this.flashlightHeld || this.flashlightToggle;
+  }
 }
