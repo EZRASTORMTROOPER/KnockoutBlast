@@ -1,2 +1,5 @@
-import { startGame } from './game.js';
-startGame();
+import { Game } from './game.js';
+
+const app = document.getElementById('app');
+const game = new Game(app);
+game.start();
