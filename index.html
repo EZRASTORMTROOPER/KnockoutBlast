@@ -1,138 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Low‑Poly Forest Shooter</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Night Shift MVP (Three.js)</title>
   <style>
-    html, body { height: 100%; margin: 0; overflow: hidden; background: #202428; }
+    :root { color-scheme: dark; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #050508; font-family: Inter, system-ui, -apple-system, sans-serif; }
     #app { position: fixed; inset: 0; }
     canvas { display: block; }
-    .ui {
-      position: fixed; left: 50%; transform: translateX(-50%);
-      bottom: 16px; padding: 10px 14px; border-radius: 14px;
-      background: rgba(20,22,24,0.65); color: #e9eef5; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
-      user-select: none; pointer-events: none;
-    }
-    .ui b { color: #fff; }
-    .crosshair {
-      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-      width: 14px; height: 14px; pointer-events: none; opacity: 0.85;
-    }
-    .crosshair:before, .crosshair:after {
-      content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-      background: #e9eef5; border-radius: 2px;
-    }
-    .crosshair:before { width: 14px; height: 2px; }
-    .crosshair:after  { width: 2px; height: 14px; }
-    .hint {
-      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-      padding: 10px 14px; border-radius: 14px; color: #f1f5f9;
-      background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
-      font: 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
-      text-align: center;
-    }
-    .hidden { display: none; }
 
-    .settings {
+    .hud {
       position: fixed;
-      top: 50%; left: 50%; transform: translate(-50%, -50%);
-      padding: 24px 30px; border-radius: 14px;
-      background: radial-gradient(circle at top, rgba(40,44,52,0.95), rgba(20,22,24,0.95));
-      border: 1px solid rgba(255,255,255,0.1);
-      color: #e9eef5;
-      font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.45); backdrop-filter: blur(6px);
-      min-width: 320px;
-    }
-    .settings h2 {
-      margin: 0 0 10px 0; text-align: center;
-    }
-    .setting {
-      display: flex; align-items: center; margin: 8px 0;
-    }
-    .setting label { flex: 1; margin-right: 10px; }
-    .setting input[type=range] { flex: 2; accent-color: #2ecc71; }
-    .setting .value-input {
-      margin-left: 8px;
-      width: 60px;
-      text-align: right;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid #555;
-      border-radius: 6px;
-      color: #fff;
-      padding: 2px 4px;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      gap: 10px;
+      z-index: 5;
+      font-weight: 700;
     }
 
-    button#resumeButton {
-      background: #2ecc71;
-      border: none;
-      color: #fff;
-      padding: 8px 16px;
+    .chip {
+      background: rgba(15, 15, 22, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 10px;
+      padding: 8px 12px;
+      letter-spacing: 0.4px;
+    }
+
+    #instructions {
+      position: fixed;
+      right: 12px;
+      top: 12px;
+      z-index: 10;
+      width: min(360px, calc(100vw - 24px));
+      background: rgba(10, 10, 14, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 12px;
+      line-height: 1.35;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    #instructions h2 { margin: 0 0 8px 0; font-size: 16px; }
+    #instructions p, #instructions ul { margin: 8px 0; font-size: 13px; color: #d7d7e0; }
+    #instructions ul { padding-left: 18px; }
+    #instructions button {
+      margin-top: 8px;
+      border: 0;
       border-radius: 8px;
+      padding: 7px 10px;
+      background: #ffd94f;
+      color: #1f1400;
+      font-weight: 700;
       cursor: pointer;
     }
-    button#resumeButton:hover { background: #27ae60; }
 
-    .cycle-ui {
-      position: fixed; top: 16px; right: 16px;
-      width: 60px; height: 60px;
-    }
-    .cycle-ui svg { width: 100%; height: 100%; }
-    .cycle-ui .bg { stroke: rgba(255,255,255,0.25); stroke-width:4; fill:none; }
-    .cycle-ui .progress { stroke:#fff; stroke-width:4; fill:none; transform: rotate(-90deg); transform-origin: 50% 50%; }
-    .cycle-icon { position: absolute; top:50%; left:50%; transform: translate(-50%, -50%); font-size:24px; }
-    .health-ui {
-      position: fixed; bottom: 16px; left: 16px;
-      padding: 8px 12px; border-radius: 10px;
-      background: rgba(20,22,24,0.65); color: #e9eef5;
-      font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35); backdrop-filter: blur(6px);
-      user-select: none;
-    }
-    .rabbit-health {
+    #flashlight-indicator.on { color: #ffd94f; }
+
+    #event-log {
       position: fixed;
-      width: 60px;
-      height: 8px;
-      background: rgba(80,0,0,0.8);
-      border: 1px solid #300;
-      pointer-events: none;
-    }
-    .rabbit-health .fill {
-      background: #2ecc71;
-      height: 100%;
-      width: 100%;
-    }
-    .rabbit-health .label {
-      position: absolute;
-      top: -14px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: #fff;
-      font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      left: 12px;
+      bottom: 12px;
+      z-index: 5;
+      background: rgba(15, 15, 22, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      padding: 8px 10px;
+      min-width: 220px;
+      font-size: 12px;
     }
   </style>
 </head>
 <body>
   <div id="app"></div>
-  <div class="crosshair"></div>
-    <div class="hint" id="hint">Click to lock the mouse (<b>Esc</b> to release). <b>WASD</b> to move, <b>Mouse</b> to aim, <b>Left Click</b> to shoot, <b>Space</b> to jump.</div>
-  <div class="ui">Low‑poly forest • third‑person shooter vibe (generic character, Fortnite‑style POV)</div>
 
-  <div id="settings" class="settings hidden">
-    <h2>Settings</h2>
-    <div class="setting"><label for="volumeSlider">Volume</label><input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" /> <input type="number" id="volumeLabel" min="0" max="1" step="0.01" value="0.5" class="value-input" /></div>
-    <div class="setting"><label for="faceSlider">Face Offset</label><input type="range" id="faceSlider" min="0" max="1" step="0.01" value="1" /> <input type="number" id="faceLabel" min="0" max="1" step="0.01" value="1" class="value-input" /></div>
-    <div class="setting"><label for="rabbitHealthSlider">Rabbit Max Health</label><input type="range" id="rabbitHealthSlider" min="100" max="1000" value="146" /> <input type="number" id="rabbitHealthLabel" min="100" max="1000" step="1" value="146" class="value-input" /></div>
-    <div class="setting"><label for="bulletDamageSlider">Bullet Damage</label><input type="range" id="bulletDamageSlider" min="1" max="200" value="200" /> <input type="number" id="bulletDamageLabel" min="1" max="200" step="1" value="200" class="value-input" /></div>
-    <div class="setting"><label for="ballDamageSlider">Ball Damage</label><input type="range" id="ballDamageSlider" min="1" max="200" value="10" /> <input type="number" id="ballDamageLabel" min="1" max="200" step="1" value="10" class="value-input" /></div>
-    <div class="setting"><label for="ballRateSlider">Dispenser Rate</label><input type="range" id="ballRateSlider" min="0.1" max="5" step="0.1" value="1" /> <input type="number" id="ballRateLabel" min="0.1" max="5" step="0.1" value="1" class="value-input" /></div>
-    <div class="setting"><label for="ballSlider">Max Balls</label><input type="range" id="ballSlider" min="100" max="10000" value="2020" step="10" /> <input type="number" id="ballCountLabel" min="100" max="10000" step="10" value="2020" class="value-input" /></div>
-    <div style="text-align:center;margin-top:12px;"><button id="resumeButton">Resume</button></div>
+  <div class="hud">
+    <div class="chip" id="clock">12:00 AM</div>
+    <div class="chip" id="flashlight-indicator">Flashlight: OFF</div>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <aside id="instructions">
+    <h2>Night Shift Instructions</h2>
+    <p>Survive until 6:00 AM. The figure appears around <b>2 AM, 3 AM, 4 AM, and 5 AM</b>.</p>
+    <ul>
+      <li><b>A / D</b>: look left and right</li>
+      <li><b>W / S</b>: subtle forward/back lean</li>
+      <li><b>F</b>: toggle flashlight</li>
+      <li><b>H</b>: show/hide this help panel</li>
+    </ul>
+    <button id="close-help" type="button">Close Help</button>
+  </aside>
+
+  <div id="event-log">Night started. Keep the flashlight ready.</div>
+
+  <script type="module" src="./js/main.js"></script>
 </body>
 </html>
